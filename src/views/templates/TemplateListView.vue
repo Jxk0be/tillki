@@ -121,8 +121,8 @@ const sortOptions = [
     <p v-else-if="visible.length === 0" class="py-8 text-center text-ink-2">
       No sets match "{{ search }}".
     </p>
-    <ul v-else class="grid gap-3 sm:auto-rows-fr sm:grid-cols-2">
-      <li v-for="s in visible" :key="s.id">
+    <ul v-else class="grid grid-cols-1 gap-3 sm:auto-rows-fr sm:grid-cols-2">
+      <li v-for="s in visible" :key="s.id" class="min-w-0">
         <RouterLink
           :to="{ name: 'template-detail', params: { id: s.id } }"
           class="flex h-full gap-3 rounded-2xl border border-line bg-surface p-3 hover:border-ink-2"
