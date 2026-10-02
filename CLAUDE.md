@@ -22,6 +22,7 @@ An item is either a **one-off** or a **volume of a set**.
 - **Prefer the Supabase MCP** (project id `btqazxppnppmhenwmhmu`) for database work: `execute_sql` for queries, `list_tables` / `list_migrations`, `get_advisors` after every schema change. For schema changes: write the migration file in `supabase/migrations`, show the SQL, apply it with `apply_migration` after approval, then rename the local file's timestamp prefix to the version `list_migrations` reports so the repo and the database agree. The CLI (`npx supabase ...`) remains the fallback.
 - Never run `supabase db reset` against the hosted project (it wipes everything).
 - **Demo data is currently loaded** (from `supabase/seed-demo.sql`): sets/items tagged `demo`, lots and expenses noted `Demo data`. Wipe it before real use with `npx supabase db query --linked -f supabase/demo-wipe.sql`. Never add real copies to a demo set (they inherit the tag). The admin allowlist is `supabase/seed.sql`, applied with the same `db query -f` command.
+- **Edge Functions** can't run locally (`supabase functions serve` needs Docker). Check them with `npx -y deno@2 check index.ts` in the function's folder, then deploy straight to the hosted project with `npx supabase functions deploy <name> --use-api` and test there. Secrets (`ANTHROPIC_API_KEY`, `CLAUDE_MODEL`, `ALLOWED_ORIGIN`) are set by the user with `npx supabase secrets set` or in the dashboard; never ask for or handle the key. `ask-kura` has `verify_jwt = false` and checks the token and `is_admin()` itself.
 - **Database tests** run against the hosted project with `npm run test:db` (`scripts/test-db.mjs`), always inside a rolled-back transaction; `supabase test db` needs Docker, so don't use it. Test an unapplied migration first with `npm run test:db -- --prelude supabase/migrations/<file>.sql`.
 
 ## Stack
@@ -104,7 +105,7 @@ npx supabase db push              # apply new migrations (after the SQL has been
 npx supabase db query --linked "select ..."   # run a query against the hosted database
 npx supabase db advisors --linked # security and performance checks
 npm run test:db                   # run pgTAP tests in supabase/tests (rolled back)
-npx supabase functions deploy <name>
+npx supabase functions deploy <name> --use-api   # no Docker needed
 ```
 
 ## Definition of done for any task
