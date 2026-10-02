@@ -1,0 +1,215 @@
+<script setup lang="ts">
+import { computed, ref } from 'vue'
+import { useRoute } from 'vue-router'
+import { LogOut, Plus } from 'lucide-vue-next'
+import BaseSheet from '@/components/ui/BaseSheet.vue'
+import ThemeToggle from '@/components/ui/ThemeToggle.vue'
+import { useKeyboardOpen } from '@/composables/useKeyboardOpen'
+import { useToast } from '@/composables/useToast'
+import AddMenuSheet from './AddMenuSheet.vue'
+import { isAddRoute, isNavActive, primaryNav, secondaryNav, tabItems } from './navigation'
+
+const route = useRoute()
+const toast = useToast()
+const keyboardOpen = useKeyboardOpen()
+const accountOpen = ref(false)
+const addOpen = ref(false)
+
+const title = computed(() => route.meta.title ?? 'Kura')
+const path = computed(() => route.path)
+
+function signOut() {
+  accountOpen.value = false
+  toast.show('Sign-in arrives in step 4.')
+}
+</script>
+
+<template>
+  <div class="min-h-dvh lg:flex">
+    <!-- Skip link for keyboard users -->
+    <a
+      href="#main"
+      class="sr-only z-[70] rounded-lg bg-primary px-4 py-3 font-semibold text-primary-ink focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
+    >
+      Skip to content
+    </a>
+
+    <!-- ===== Desktop sidebar (lg+) ===== -->
+    <aside
+      class="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-line bg-surface px-3 py-5 lg:flex"
+      aria-label="Main"
+    >
+      <RouterLink to="/inventory" class="mb-6 flex items-center gap-2.5 rounded-lg px-3 py-1">
+        <span
+          class="grid size-9 rotate-[-4deg] place-items-center rounded-md border-2 border-accent text-lg font-black text-accent"
+          aria-hidden="true"
+          >蔵</span
+        >
+        <span class="text-xl font-black tracking-tight">Kura</span>
+      </RouterLink>
+
+      <button
+        type="button"
+        class="mb-4 flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 font-semibold text-primary-ink hover:opacity-90"
+        aria-haspopup="dialog"
+        @click="addOpen = true"
+      >
+        <Plus class="size-5" aria-hidden="true" />
+        Add
+      </button>
+
+      <nav class="flex flex-1 flex-col gap-0.5 overflow-y-auto">
+        <template v-for="(group, i) in [primaryNav, secondaryNav]" :key="i">
+          <div v-if="i > 0" class="mx-3 my-3 border-t border-line" />
+          <RouterLink
+            v-for="item in group"
+            :key="item.to"
+            :to="item.to"
+            class="relative flex min-h-11 items-center gap-3 rounded-lg px-3 font-medium text-ink-2 hover:bg-surface-2 hover:text-ink"
+            active-class=""
+            exact-active-class=""
+            :class="{ 'bg-surface-2 font-bold text-ink': isNavActive(item.to, path) }"
+            :aria-current="isNavActive(item.to, path) ? 'page' : undefined"
+          >
+            <span
+              v-if="isNavActive(item.to, path)"
+              class="absolute top-2 bottom-2 left-0 w-1 rounded-full bg-accent"
+              aria-hidden="true"
+            />
+            <component :is="item.icon" class="size-5" aria-hidden="true" />
+            {{ item.label }}
+          </RouterLink>
+        </template>
+      </nav>
+
+      <button
+        type="button"
+        class="mt-2 flex min-h-11 items-center gap-3 rounded-lg px-3 text-left font-medium text-ink-2 hover:bg-surface-2 hover:text-ink"
+        @click="accountOpen = true"
+      >
+        <span
+          class="grid size-8 place-items-center rounded-full bg-surface-2 text-sm font-bold"
+          aria-hidden="true"
+        >
+          ?
+        </span>
+        Account
+      </button>
+    </aside>
+
+    <div class="flex min-w-0 flex-1 flex-col">
+      <!-- ===== Mobile top bar ===== -->
+      <header
+        class="sticky top-0 z-30 border-b border-line bg-bg/90 pt-safe backdrop-blur lg:hidden"
+      >
+        <div class="flex h-14 items-center gap-3 pr-safe pl-safe">
+          <h1 class="min-w-0 flex-1 truncate pl-4 text-lg font-bold">{{ title }}</h1>
+          <button
+            type="button"
+            class="mr-2 grid size-11 place-items-center rounded-full"
+            aria-label="Account menu"
+            @click="accountOpen = true"
+          >
+            <span
+              class="grid size-9 place-items-center rounded-full border-2 border-line bg-surface text-sm font-bold"
+              aria-hidden="true"
+              >?</span
+            >
+          </button>
+        </div>
+      </header>
+
+      <!-- ===== Content ===== -->
+      <main
+        id="main"
+        tabindex="-1"
+        class="flex-1 px-4 pt-4 pb-[calc(6rem+env(safe-area-inset-bottom))] outline-none lg:px-8 lg:pt-8 lg:pb-12"
+      >
+        <h1 class="mb-6 hidden text-3xl font-black tracking-tight lg:block">{{ title }}</h1>
+        <slot />
+      </main>
+    </div>
+
+    <!-- ===== Mobile bottom tab bar ===== -->
+    <nav
+      class="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 pb-safe backdrop-blur transition-transform duration-200 lg:hidden"
+      :class="{ 'translate-y-full': keyboardOpen }"
+      aria-label="Main"
+    >
+      <ul class="mx-auto grid h-16 max-w-lg grid-cols-5 items-stretch pr-safe pl-safe">
+        <li v-for="item in tabItems.left" :key="item.to">
+          <RouterLink
+            :to="item.to"
+            class="relative flex h-full flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-muted"
+            :class="{ 'font-bold text-ink': isNavActive(item.to, path, { mobile: true }) }"
+            :aria-current="isNavActive(item.to, path, { mobile: true }) ? 'page' : undefined"
+          >
+            <span
+              v-if="isNavActive(item.to, path, { mobile: true })"
+              class="absolute top-0 h-1 w-8 rounded-b-full bg-accent"
+              aria-hidden="true"
+            />
+            <component
+              :is="item.icon"
+              class="size-6"
+              :stroke-width="isNavActive(item.to, path, { mobile: true }) ? 2.5 : 1.75"
+              aria-hidden="true"
+            />
+            {{ item.label }}
+          </RouterLink>
+        </li>
+        <li class="flex items-start justify-center">
+          <button
+            type="button"
+            class="-mt-5 grid size-14 place-items-center rounded-full bg-primary text-primary-ink shadow-lg ring-4 ring-bg"
+            :class="{ 'ring-accent': isAddRoute(path) }"
+            aria-label="Add"
+            aria-haspopup="dialog"
+            @click="addOpen = true"
+          >
+            <Plus class="size-7" :stroke-width="2.5" aria-hidden="true" />
+          </button>
+        </li>
+        <li v-for="item in tabItems.right" :key="item.to">
+          <RouterLink
+            :to="item.to"
+            class="relative flex h-full flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-muted"
+            :class="{ 'font-bold text-ink': isNavActive(item.to, path, { mobile: true }) }"
+            :aria-current="isNavActive(item.to, path, { mobile: true }) ? 'page' : undefined"
+          >
+            <span
+              v-if="isNavActive(item.to, path, { mobile: true })"
+              class="absolute top-0 h-1 w-8 rounded-b-full bg-accent"
+              aria-hidden="true"
+            />
+            <component
+              :is="item.icon"
+              class="size-6"
+              :stroke-width="isNavActive(item.to, path, { mobile: true }) ? 2.5 : 1.75"
+              aria-hidden="true"
+            />
+            {{ item.label }}
+          </RouterLink>
+        </li>
+      </ul>
+    </nav>
+
+    <AddMenuSheet v-model:open="addOpen" />
+
+    <!-- Account menu (fills in with real profile data in step 4) -->
+    <BaseSheet v-model:open="accountOpen" title="Account">
+      <div class="space-y-5">
+        <p class="text-ink-2">Not signed in yet. Google sign-in arrives in step 4.</p>
+        <ThemeToggle />
+        <button
+          type="button"
+          class="flex min-h-11 w-full items-center gap-3 rounded-lg px-1 font-semibold text-danger"
+          @click="signOut"
+        >
+          <LogOut class="size-5" aria-hidden="true" />
+          Sign out
+        </button>
+      </div>
+    </BaseSheet>
+  </div>
+</template>
