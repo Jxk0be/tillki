@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, toRef } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, nextTick, ref, toRef, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
   Archive,
   ArchiveRestore,
@@ -22,7 +22,11 @@ import ItemActionsSheet from '@/components/inventory/ItemActionsSheet.vue'
 import ItemGallery from '@/components/inventory/ItemGallery.vue'
 import StatusChip from '@/components/inventory/StatusChip.vue'
 import VolumeStrip from '@/components/templates/VolumeStrip.vue'
+import EditSaleSheet from '@/components/sales/EditSaleSheet.vue'
+import MarkSoldSheet from '@/components/sales/MarkSoldSheet.vue'
+import { getSale, type SaleRow } from '@/composables/useSales'
 import { useItemActions } from '@/composables/useItemActions'
+import { useSaleActions } from '@/composables/useSaleActions'
 import { useItemDetail, type AddCopiesInput, type ItemEvent } from '@/composables/useItemDetail'
 import { useToast } from '@/composables/useToast'
 import { formatDate, formatDateTime } from '@/lib/dates'
@@ -35,18 +39,29 @@ import type { ItemStatus } from '@/types/inventory'
 const props = defineProps<{ id: string }>()
 
 const router = useRouter()
+const route = useRoute()
 const toast = useToast()
 const inventory = useInventoryStore()
 const detail = useItemDetail(toRef(props, 'id'))
 const { item, images, events, sales, acquisitions, addedBy, lots, loading, notFound, error } =
   detail
 
+const saleActions = useSaleActions(() => detail.load())
+const { sellItem, sellOpen } = saleActions
+
 const { run, confirmArchiveOpen, archiving, confirmArchive } = useItemActions({
+  sell: saleActions.openSell,
   setStatus: detail.setStatus,
   setArchived: detail.setArchived,
   afterUndo: detail.load,
 })
 const menuOpen = ref(false)
+
+watch(loading, async (isLoading) => {
+  if (isLoading || !route.hash) return
+  await nextTick()
+  document.querySelector(route.hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+})
 
 function back() {
   if (window.history.state?.back) router.back()
@@ -120,17 +135,41 @@ const timeline = computed(() =>
     ...events.value.map((e) => ({
       key: `e-${e.id}`,
       at: e.at,
+      shownAt: e.at,
+      // Ties: a sale and the status change it caused share a timestamp; show the sale first.
+      rank: 0,
       text: describeEvent(e),
       profit: null as number | null,
+      saleId: null as string | null,
     })),
     ...sales.value.map((s) => ({
       key: `s-${s.id}`,
-      at: s.soldAt,
+      // Ordered by when it was recorded, showing the "When" you entered.
+      at: s.recordedAt,
+      shownAt: s.soldAt,
+      rank: 1,
       text: `Sold ${s.quantity} on ${platformLabels[s.platform]} for ${formatCents(s.salePriceCents)}${s.bundleId ? ' (bundle)' : ''}`,
       profit: s.netProfitCents,
+      saleId: s.id,
     })),
-  ].sort((a, b) => b.at.localeCompare(a.at)),
+  ].sort((a, b) => b.at.localeCompare(a.at) || b.rank - a.rank),
 )
+
+// Fix or undo a sale right from the item's history.
+const editingSale = ref<SaleRow | null>(null)
+const editSaleOpen = ref(false)
+async function editSale(id: string) {
+  try {
+    editingSale.value = await getSale(id)
+    if (editingSale.value) editSaleOpen.value = true
+  } catch {
+    toast.error("Couldn't load that sale.")
+  }
+}
+function onSaleChanged(message: string) {
+  toast.success(message)
+  void detail.load()
+}
 
 const unitsBought = computed(() => acquisitions.value.reduce((sum, a) => sum + a.quantity, 0))
 const sources = computed(() =>
@@ -426,7 +465,7 @@ const sources = computed(() =>
         </div>
 
         <!-- Copies -->
-        <section class="rounded-2xl border border-line bg-surface p-4">
+        <section id="copies" class="scroll-mt-24 rounded-2xl border border-line bg-surface p-4">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <h3 class="font-bold">Copies</h3>
             <BaseButton size="sm" variant="secondary" @click="addCopiesOpen = true">
@@ -474,7 +513,17 @@ const sources = computed(() =>
                   >· net {{ formatSignedCents(entry.profit) }}</span
                 >
               </p>
-              <p class="text-xs text-muted">{{ formatDateTime(entry.at) }}</p>
+              <p class="text-xs text-muted">
+                {{ formatDateTime(entry.shownAt) }}
+                <button
+                  v-if="entry.saleId"
+                  type="button"
+                  class="ml-1 min-h-8 font-semibold text-primary underline-offset-2 hover:underline"
+                  @click="editSale(entry.saleId)"
+                >
+                  Edit sale
+                </button>
+              </p>
             </li>
             <li v-if="timeline.length === 0" class="text-sm text-ink-2">No history yet.</li>
           </ol>
@@ -483,6 +532,8 @@ const sources = computed(() =>
     </article>
 
     <ItemActionsSheet v-model:open="menuOpen" :item="item" @action="run" />
+    <MarkSoldSheet v-model:open="sellOpen" :item="sellItem" @sold="saleActions.onSold" />
+    <EditSaleSheet v-model:open="editSaleOpen" :sale="editingSale" @changed="onSaleChanged" />
     <AddCopiesSheet
       v-if="item"
       v-model:open="addCopiesOpen"

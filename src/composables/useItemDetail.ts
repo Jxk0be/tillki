@@ -25,6 +25,8 @@ export interface ItemEvent {
 export interface ItemSale {
   id: string
   soldAt: string
+  /** When the sale was recorded (orders it in History). */
+  recordedAt: string
   platform: SalesPlatform
   quantity: number
   salePriceCents: number
@@ -105,7 +107,7 @@ export function useItemDetail(id: Ref<string>) {
           supabase
             .from('v_sales')
             .select(
-              'id, sold_at, platform, quantity, sale_price_cents, net_profit_cents, bundle_id',
+              'id, sold_at, created_at, platform, quantity, sale_price_cents, net_profit_cents, bundle_id',
             )
             .eq('item_id', itemId)
             .order('sold_at', { ascending: false }),
@@ -155,6 +157,7 @@ export function useItemDetail(id: Ref<string>) {
       sales.value = (saleRows.data ?? []).map((r) => ({
         id: r.id ?? '',
         soldAt: r.sold_at ?? '',
+        recordedAt: r.created_at ?? r.sold_at ?? '',
         platform: r.platform ?? 'other',
         quantity: r.quantity ?? 1,
         salePriceCents: r.sale_price_cents ?? 0,

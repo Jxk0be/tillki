@@ -42,14 +42,13 @@ export const addChoices: AddChoice[] = [
   {
     label: 'One-off item',
     description: 'A single figure, piece of merch, or standalone book.',
-    to: '/inventory/new',
+    to: '/inventory/new?type=one_off',
     icon: PackagePlus,
   },
   {
     label: 'Volumes of a set',
     description: 'Pick a set, then choose which volumes came in.',
-    // The Sets list switches into "pick a set" mode with this query.
-    to: '/templates?pick=add-volumes',
+    to: '/inventory/new?type=set',
     icon: BookCopy,
   },
   {

@@ -1,5 +1,5 @@
 import { computed, ref } from 'vue'
-import { defineStore } from 'pinia'
+import { acceptHMRUpdate, defineStore } from 'pinia'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import type { Tables } from '@/types/database'
@@ -149,3 +149,6 @@ export const useAuthStore = defineStore('auth', () => {
     signOut,
   }
 })
+
+// Swap in edits to this store during development instead of keeping the old one.
+if (import.meta.hot) import.meta.hot.accept(acceptHMRUpdate(useAuthStore, import.meta.hot))

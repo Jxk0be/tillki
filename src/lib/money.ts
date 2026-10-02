@@ -32,3 +32,21 @@ export function formatSignedCents(cents: number): string {
   if (cents === 0) return formatCents(0)
   return `${cents > 0 ? '+' : '−'}${formatCents(Math.abs(cents))}`
 }
+
+const compactUsd = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  notation: 'compact',
+  maximumFractionDigits: 1,
+})
+const wholeUsd = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 0,
+})
+
+/** Short money for chart axes and tiles: "$950", "$1.2K", "$34K". */
+export function formatCompactCents(cents: number): string {
+  const dollars = cents / 100
+  return Math.abs(dollars) < 1000 ? wholeUsd.format(dollars) : compactUsd.format(dollars)
+}

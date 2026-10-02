@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatCents, formatSignedCents, parseMoneyToCents } from '../money'
+import { formatCents, formatCompactCents, formatSignedCents, parseMoneyToCents } from '../money'
 
 describe('parseMoneyToCents', () => {
   it.each([
@@ -43,5 +43,15 @@ describe('formatSignedCents', () => {
     expect(formatSignedCents(457)).toBe('+$4.57')
     expect(formatSignedCents(-100)).toBe('−$1.00')
     expect(formatSignedCents(0)).toBe('$0.00')
+  })
+})
+
+describe('formatCompactCents', () => {
+  it('shortens big amounts and rounds small ones to dollars', () => {
+    expect(formatCompactCents(95_049)).toBe('$950')
+    expect(formatCompactCents(123_456)).toBe('$1.2K')
+    expect(formatCompactCents(3_400_000)).toBe('$34K')
+    expect(formatCompactCents(-250_000)).toBe('-$2.5K')
+    expect(formatCompactCents(0)).toBe('$0')
   })
 })

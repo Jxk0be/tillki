@@ -21,6 +21,9 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",
     "@vueuse/core": "^15.0.0",
+    "@zxing/browser": "^0.2.1",
+    "@zxing/library": "^0.23.0",
+    "browser-image-compression": "^2.0.2",
     "chart.js": "^4.5.1",
     "lucide-vue-next": "^1.0.0",
     "pinia": "^4.0.3",

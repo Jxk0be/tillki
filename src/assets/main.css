@@ -20,6 +20,14 @@
   --kura-accent: #c42e2e;
   --kura-danger: #b42323;
   --kura-success: #3f6b33;
+  /* Chart series, in order of use. */
+  --kura-chart-1: #26346a;
+  --kura-chart-2: #c42e2e;
+  --kura-chart-3: #3f6b33;
+  --kura-chart-4: #b7791f;
+  --kura-chart-5: #6b4fa0;
+  --kura-chart-6: #2f7f86;
+  --kura-chart-7: #8a8f98;
   color-scheme: light;
 }
 
@@ -36,6 +44,13 @@
   --kura-accent: #e0534f;
   --kura-danger: #f06a65;
   --kura-success: #8db27c;
+  --kura-chart-1: #93a4e6;
+  --kura-chart-2: #e0534f;
+  --kura-chart-3: #8db27c;
+  --kura-chart-4: #e3b155;
+  --kura-chart-5: #b49be0;
+  --kura-chart-6: #6cc3c9;
+  --kura-chart-7: #8a8f98;
   color-scheme: dark;
 }
 

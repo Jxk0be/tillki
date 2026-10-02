@@ -9,6 +9,8 @@ interface ItemActionHandlers {
   setArchived: (ids: string[], archived: boolean) => Promise<ActionResult>
   /** Called after an archive is undone, to bring the item back on screen. */
   afterUndo?: () => void | Promise<void>
+  /** Opens the Mark sold sheet. */
+  sell?: (item: InventoryItem) => void
 }
 
 /**
@@ -38,7 +40,7 @@ export function useItemActions(handlers: ItemActionHandlers) {
         await changeStatus(item, 'in_stock', 'Back in stock (not listed).')
         break
       case 'sell':
-        toast.show('Recording a sale arrives in step 8.')
+        handlers.sell?.(item)
         break
       case 'edit':
         await router.push({ name: 'item-edit', params: { id: item.id } })

@@ -1,5 +1,5 @@
 import { computed, reactive, ref, shallowRef } from 'vue'
-import { defineStore } from 'pinia'
+import { acceptHMRUpdate, defineStore } from 'pinia'
 import { supabase } from '@/lib/supabase'
 import {
   defaultFilters,
@@ -55,6 +55,10 @@ function itemsQuery<Columns extends string>(
   if (f.status.length) query = query.in('status', f.status)
   if (f.condition) query = query.eq('condition', f.condition)
   if (f.noPhotos) query = query.is('cover_path', null)
+  if (f.age) {
+    query = query.gte('days_in_stock', f.age.min)
+    if (f.age.max !== null) query = query.lte('days_in_stock', f.age.max)
+  }
   const pattern = searchPattern(f.q)
   if (pattern) {
     query = query.or(
@@ -123,7 +127,10 @@ export const useInventoryStore = defineStore('inventory', () => {
       ascending: f.dir === 'asc',
       nullsFirst: false,
     })
-    if (f.sort === 'template_name') query = query.order('volume_number', { ascending: true })
+    // Ties (e.g. 30 volumes added in the same moment) fall back to set and volume order.
+    if (f.sort !== 'template_name')
+      query = query.order('template_name', { ascending: true, nullsFirst: false })
+    query = query.order('volume_number', { ascending: true, nullsFirst: false })
     const { data, error: err } = await query.order('id').range(from, from + PAGE_SIZE - 1)
     if (gen !== generation) return null
     if (err) throw err
@@ -450,3 +457,6 @@ export const useInventoryStore = defineStore('inventory', () => {
     setArchived,
   }
 })
+
+// Swap in edits to this store during development instead of keeping the old one.
+if (import.meta.hot) import.meta.hot.accept(acceptHMRUpdate(useInventoryStore, import.meta.hot))

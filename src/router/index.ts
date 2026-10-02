@@ -114,6 +114,13 @@ const router = createRouter({
       meta: { title: 'Lots', requiresAuth: true },
     },
     {
+      path: '/lots/:id',
+      name: 'lot-detail',
+      component: () => import('@/views/LotDetailView.vue'),
+      props: true,
+      meta: { title: 'Lot', requiresAuth: true },
+    },
+    {
       path: '/expenses',
       name: 'expenses',
       component: () => import('@/views/ExpensesView.vue'),

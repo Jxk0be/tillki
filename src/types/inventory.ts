@@ -144,3 +144,8 @@ export function toInventorySet(row: TemplateViewRow): InventorySet {
 
 /** Quick actions offered for an item in menus and on its detail page. */
 export type ItemAction = 'list' | 'unlist' | 'sell' | 'edit' | 'duplicate' | 'archive' | 'unarchive'
+
+export interface LotOption {
+  id: string
+  name: string
+}

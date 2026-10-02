@@ -1050,6 +1050,10 @@ export type Database = {
           unit_cost_cents: number
         }[]
       }
+      backfill_inventory_snapshots: {
+        Args: { p_start: string }
+        Returns: number
+      }
       create_item: {
         Args: { p_acquisition?: Json; p_item: Json }
         Returns: {
@@ -1116,6 +1120,149 @@ export type Database = {
       render_volume_title: {
         Args: { p_name: string; p_pattern: string; p_volume: number }
         Returns: string
+      }
+      report_months: {
+        Args: { p_end: string; p_start: string; p_tz: string }
+        Returns: {
+          month: string
+        }[]
+      }
+      rpc_aging_buckets: {
+        Args: never
+        Returns: {
+          bucket: string
+          cost_cents: number
+          item_count: number
+          max_days: number
+          min_days: number
+          units: number
+        }[]
+      }
+      rpc_items_added: {
+        Args: {
+          p_end: string
+          p_grain?: string
+          p_start: string
+          p_tz?: string
+        }
+        Returns: {
+          added_by: string
+          item_count: number
+          period: string
+        }[]
+      }
+      rpc_monthly_pnl: {
+        Args: { p_end: string; p_start: string; p_tz?: string }
+        Returns: {
+          cogs_cents: number
+          expenses_cents: number
+          fees_cents: number
+          month: string
+          net_profit_cents: number
+          other_costs_cents: number
+          revenue_cents: number
+          sales_profit_cents: number
+          shipping_charged_cents: number
+          shipping_paid_cents: number
+          units_sold: number
+        }[]
+      }
+      rpc_monthly_spend: {
+        Args: { p_end: string; p_start: string; p_tz?: string }
+        Returns: {
+          expenses_cents: number
+          month: string
+          purchased_cents: number
+          revenue_cents: number
+        }[]
+      }
+      rpc_overview: {
+        Args: { p_tz?: string }
+        Returns: {
+          category_counts: Json
+          cost_basis_cents: number
+          expenses_cents: number
+          items_added_this_month: number
+          list_value_cents: number
+          missing_volumes: number
+          net_profit_cents: number
+          one_off_count: number
+          potential_profit_cents: number
+          revenue_cents: number
+          sales_profit_cents: number
+          set_count: number
+          set_volume_count: number
+          status_counts: Json
+          units_in_stock: number
+        }[]
+      }
+      rpc_platform_breakdown: {
+        Args: { p_end: string; p_start: string; p_tz?: string }
+        Returns: {
+          avg_days_to_sell: number
+          fees_cents: number
+          net_profit_cents: number
+          platform: Database['public']['Enums']['sales_platform']
+          revenue_cents: number
+          sale_count: number
+          units_sold: number
+        }[]
+      }
+      rpc_sales_summary: {
+        Args: { p_end: string; p_start: string; p_tz?: string }
+        Returns: {
+          avg_days_to_sell: number
+          expenses_cents: number
+          net_profit_cents: number
+          revenue_cents: number
+          sale_count: number
+          sales_profit_cents: number
+          units_sold: number
+        }[]
+      }
+      rpc_set_breakdown: {
+        Args: {
+          p_end: string
+          p_limit?: number
+          p_start: string
+          p_tz?: string
+        }
+        Returns: {
+          avg_days_to_sell: number
+          group_key: string
+          group_kind: string
+          label: string
+          net_profit_cents: number
+          revenue_cents: number
+          template_id: string
+          total_volumes: number
+          units_in_stock: number
+          units_sold: number
+          volumes_owned: number
+        }[]
+      }
+      sales_between: {
+        Args: { p_end: string; p_start: string; p_tz?: string }
+        Returns: {
+          category: Database['public']['Enums']['item_category']
+          cogs_cents: number
+          days_to_sell: number
+          item_id: string
+          net_profit_cents: number
+          other_cost_cents: number
+          platform: Database['public']['Enums']['sales_platform']
+          platform_fee_cents: number
+          quantity: number
+          revenue_cents: number
+          sale_id: string
+          sale_price_cents: number
+          series: string
+          shipping_charged_cents: number
+          shipping_cost_cents: number
+          sold_on: string
+          template_id: string
+          template_name: string
+        }[]
       }
       search_templates: {
         Args: { q: string }

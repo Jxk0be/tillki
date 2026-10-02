@@ -61,6 +61,31 @@ export interface InventoryFilters {
   groupSort: GroupSort
   /** Set to expand in Sets view (from a set chip in Items view). */
   expand: string | null
+  /** Days in stock, from the dashboard's aging chart. `max` null = no upper limit. */
+  age: AgeRange | null
+}
+
+export interface AgeRange {
+  min: number
+  max: number | null
+}
+
+/** "31-60" or "91-" (no upper limit). */
+export function parseAge(value: string | null): AgeRange | null {
+  const m = value?.match(/^(\d+)-(\d*)$/)
+  if (!m) return null
+  const min = Number(m[1])
+  const max = m[2] === '' ? null : Number(m[2])
+  return max !== null && max < min ? null : { min, max }
+}
+
+export function formatAge(age: AgeRange): string {
+  return `${age.min}-${age.max ?? ''}`
+}
+
+/** "31-60 days" or "Over 90 days". */
+export function ageLabel(age: AgeRange): string {
+  return age.max === null ? `Over ${age.min - 1} days` : `${age.min}-${age.max} days`
 }
 
 export const defaultFilters: Readonly<InventoryFilters> = {
@@ -77,6 +102,7 @@ export const defaultFilters: Readonly<InventoryFilters> = {
   dir: 'desc',
   groupSort: 'name',
   expand: null,
+  age: null,
 }
 
 function first(value: LocationQuery[string] | undefined): string | null {
@@ -109,6 +135,7 @@ export function parseInventoryQuery(query: LocationQuery): InventoryFilters {
     dir: oneOf(first(query.dir), ['asc', 'desc'] as const) ?? defaultFilters.dir,
     groupSort: oneOf(first(query.gsort), groupSorts) ?? defaultFilters.groupSort,
     expand: first(query.expand),
+    age: parseAge(first(query.age)),
   }
 }
 
@@ -130,13 +157,14 @@ export function toInventoryQuery(f: InventoryFilters): LocationQueryRaw {
   }
   if (f.groupSort !== defaultFilters.groupSort) q.gsort = f.groupSort
   if (f.expand) q.expand = f.expand
+  if (f.age) q.age = formatAge(f.age)
   return q
 }
 
 /** Filters that narrow down which items match (beyond view, sort and kind). */
 export function itemFiltersActive(f: InventoryFilters): boolean {
   return Boolean(
-    f.q.trim() || f.category || f.status.length || f.condition || f.noPhotos || f.archived,
+    f.q.trim() || f.category || f.status.length || f.condition || f.noPhotos || f.archived || f.age,
   )
 }
 

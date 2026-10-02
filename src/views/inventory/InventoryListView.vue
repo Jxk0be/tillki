@@ -25,12 +25,17 @@ import ItemCardRow from '@/components/inventory/ItemCardRow.vue'
 import ItemsTable from '@/components/inventory/ItemsTable.vue'
 import SetGroupCard from '@/components/templates/SetGroupCard.vue'
 import SetsTable from '@/components/templates/SetsTable.vue'
+import MarkSoldSheet from '@/components/sales/MarkSoldSheet.vue'
+import BundleSaleSheet from '@/components/sales/BundleSaleSheet.vue'
+import { useDataVersion } from '@/composables/useDataChanged'
 import { useItemActions } from '@/composables/useItemActions'
+import { useSaleActions } from '@/composables/useSaleActions'
 import { useSignedUrls } from '@/composables/useSignedUrls'
 import { useToast } from '@/composables/useToast'
 import { downloadCsv, toCsv } from '@/lib/csv'
 import { formatDate, todayIso } from '@/lib/dates'
 import {
+  ageLabel,
   defaultFilters,
   extraFilterCount,
   parseInventoryQuery,
@@ -162,7 +167,18 @@ const inventoryEmpty = computed(
 // ---------------------------------------------------------------- actions
 const actionItem = ref<InventoryItem | null>(null)
 const actionsOpen = ref(false)
+const sales = useSaleActions(() => store.load())
+const { sellItem, sellOpen, bundleItems, bundleOpen } = sales
+// Reload when a sale, lot split or expense changes the numbers.
+watch(useDataVersion(), () => void store.load())
+
+function sellSelected() {
+  const rows = items.value.filter((i) => selected.value.has(i.id))
+  sales.openBundle(rows)
+}
+
 const { run, confirmArchiveOpen, archiveTarget, archiving, confirmArchive } = useItemActions({
+  sell: sales.openSell,
   setStatus: store.setStatus,
   setArchived: store.setArchived,
   afterUndo: store.load,
@@ -315,6 +331,13 @@ function exportSelected() {
           @toggle="toggleQuickStatus(s)"
           >{{ statusLabels[s] }}</BaseChip
         >
+        <BaseChip
+          v-if="filters.age"
+          selected
+          :aria-label="`In stock ${ageLabel(filters.age)}. Remove this filter`"
+          @toggle="update({ age: null })"
+          >{{ ageLabel(filters.age) }} <X class="size-4" aria-hidden="true"
+        /></BaseChip>
       </div>
     </div>
 
@@ -457,11 +480,7 @@ function exportSelected() {
             <BaseButton size="sm" variant="ghost" @click="bulkArchive">
               <Archive class="size-4" aria-hidden="true" /> Archive
             </BaseButton>
-            <BaseButton
-              size="sm"
-              variant="ghost"
-              @click="toast.show('Selling as a bundle arrives in step 8.')"
-            >
+            <BaseButton size="sm" variant="ghost" @click="sellSelected">
               Sell as bundle
             </BaseButton>
             <BaseButton size="sm" variant="ghost" @click="exportSelected">
@@ -498,6 +517,17 @@ function exportSelected() {
     </template>
 
     <ItemActionsSheet v-model:open="actionsOpen" :item="actionItem" @action="run" />
+    <MarkSoldSheet v-model:open="sellOpen" :item="sellItem" @sold="sales.onSold" />
+    <BundleSaleSheet
+      v-model:open="bundleOpen"
+      :items="bundleItems"
+      @sold="
+        (id, count) => {
+          selected = new Set()
+          sales.onBundleSold(id, count)
+        }
+      "
+    />
     <InventoryFiltersSheet
       v-model:open="filtersOpen"
       :filters="filters"
