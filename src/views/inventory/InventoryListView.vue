@@ -111,8 +111,10 @@ void store.loadSetOptions()
 void store.loadTagOptions()
 
 // ---------------------------------------------------------------- photos
+// Getters that copy the arrays, so rows appended by infinite scroll (push) also
+// trigger a request, not just a whole new list.
 watch(
-  [items, visibleSets, () => [...children.value.values()].flat()],
+  [() => [...items.value], visibleSets, () => [...children.value.values()].flat()],
   ([list, sets, kids]) => {
     void requestPhotos([
       ...list.map((i) => i.cover_path),
