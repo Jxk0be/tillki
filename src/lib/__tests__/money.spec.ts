@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatCents, parseMoneyToCents } from '../money'
+import { formatCents, formatSignedCents, parseMoneyToCents } from '../money'
 
 describe('parseMoneyToCents', () => {
   it.each([
@@ -35,5 +35,13 @@ describe('formatCents', () => {
 
   it('formats negative amounts', () => {
     expect(formatCents(-1250)).toBe('-$12.50')
+  })
+})
+
+describe('formatSignedCents', () => {
+  it('shows a sign for gains and losses', () => {
+    expect(formatSignedCents(457)).toBe('+$4.57')
+    expect(formatSignedCents(-100)).toBe('−$1.00')
+    expect(formatSignedCents(0)).toBe('$0.00')
   })
 })

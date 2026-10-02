@@ -26,3 +26,9 @@ export function parseMoneyToCents(input: string): number | null {
 
   return Number.isSafeInteger(cents) ? cents : null
 }
+
+/** Profit with an explicit sign so it isn't shown by color alone: "+$4.57", "−$1.00". */
+export function formatSignedCents(cents: number): string {
+  if (cents === 0) return formatCents(0)
+  return `${cents > 0 ? '+' : '−'}${formatCents(Math.abs(cents))}`
+}
