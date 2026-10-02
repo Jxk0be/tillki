@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { EllipsisVertical, Library } from 'lucide-vue-next'
+import { EllipsisVertical, Library, Tag } from 'lucide-vue-next'
 import ItemThumb from './ItemThumb.vue'
 import StatusChip from './StatusChip.vue'
 import { formatCents, formatSignedCents } from '@/lib/money'
@@ -48,6 +48,16 @@ const profit = computed(() =>
         >
           <Library class="size-3 shrink-0" aria-hidden="true" />
           <span class="truncate">{{ item.template_name }}</span>
+        </RouterLink>
+        <RouterLink
+          v-for="tag in item.tags"
+          :key="tag"
+          :to="{ name: 'inventory', query: { tag } }"
+          class="relative z-10 inline-flex max-w-40 items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-xs font-medium text-ink-2 hover:text-ink"
+          :aria-label="`Show items tagged ${tag}`"
+        >
+          <Tag class="size-3 shrink-0" aria-hidden="true" />
+          <span class="truncate">{{ tag }}</span>
         </RouterLink>
       </div>
     </div>

@@ -5,6 +5,8 @@ import {
   defaultFilters,
   itemFiltersActive,
   searchPattern,
+  searchTagFilter,
+  tagArrayLiteral,
   type InventoryFilters,
   type KindFilter,
 } from '@/lib/inventoryQuery'
@@ -55,16 +57,19 @@ function itemsQuery<Columns extends string>(
   if (f.status.length) query = query.in('status', f.status)
   if (f.condition) query = query.eq('condition', f.condition)
   if (f.noPhotos) query = query.is('cover_path', null)
+  if (f.tag) query = query.filter('tags', 'cs', tagArrayLiteral(f.tag))
   if (f.age) {
     query = query.gte('days_in_stock', f.age.min)
     if (f.age.max !== null) query = query.lte('days_in_stock', f.age.max)
   }
   const pattern = searchPattern(f.q)
   if (pattern) {
+    const tag = searchTagFilter(f.q)
     query = query.or(
-      ['name', 'series', 'template_name', 'sku', 'isbn']
-        .map((c) => `${c}.ilike.${pattern}`)
-        .join(','),
+      [
+        ...['name', 'series', 'template_name', 'sku', 'isbn'].map((c) => `${c}.ilike.${pattern}`),
+        ...(tag ? [tag] : []),
+      ].join(','),
     )
   }
   return query
@@ -99,6 +104,26 @@ export const useInventoryStore = defineStore('inventory', () => {
       .is('archived_at', null)
       .order('name')
     setOptions.value = data ?? []
+  }
+
+  /** Every tag in use on non-archived items, for the Tag filter. */
+  const tagOptions = ref<string[]>([])
+
+  async function loadTagOptions() {
+    const tags = new Set<string>()
+    for (let from = 0; ; from += CHUNK) {
+      const { data, error: err } = await supabase
+        .from('items')
+        .select('tags')
+        .is('archived_at', null)
+        .not('tags', 'eq', '{}')
+        .order('id')
+        .range(from, from + CHUNK - 1)
+      if (err) return
+      for (const r of data ?? []) r.tags.forEach((t) => tags.add(t))
+      if (!data || data.length < CHUNK) break
+    }
+    tagOptions.value = [...tags].sort((a, b) => a.localeCompare(b))
   }
 
   /** Bumped on every reload so late responses from older filters are ignored. */
@@ -425,6 +450,33 @@ export const useInventoryStore = defineStore('inventory', () => {
     return { ok: true }
   }
 
+  /** Adds tags to items (keeping the tags they already have). */
+  async function addTags(ids: string[], tags: string[]): Promise<ActionResult> {
+    const { data, error: readErr } = await supabase.from('items').select('id, tags').in('id', ids)
+    if (readErr) return { ok: false, message: readErr.message }
+    // Items that end up with the same tag list are saved in one request.
+    const groups = new Map<string, { tags: string[]; ids: string[] }>()
+    for (const row of data ?? []) {
+      const next = [...new Set([...row.tags, ...tags])]
+      if (next.length === row.tags.length) continue
+      const key = JSON.stringify(next)
+      const group = groups.get(key) ?? { tags: next, ids: [] }
+      group.ids.push(row.id)
+      groups.set(key, group)
+    }
+    const results = await Promise.all(
+      [...groups.values()].map((g) =>
+        supabase.from('items').update({ tags: g.tags }).in('id', g.ids),
+      ),
+    )
+    const failed = results.find((r) => r.error)?.error
+    if (failed) return { ok: false, message: failed.message }
+    for (const g of groups.values())
+      for (const id of g.ids) loadedRows(id).forEach((r) => (r.tags = g.tags))
+    void loadTagOptions()
+    return { ok: true }
+  }
+
   return {
     filters,
     items,
@@ -436,6 +488,9 @@ export const useInventoryStore = defineStore('inventory', () => {
     sets,
     setOptions,
     loadSetOptions,
+    tagOptions,
+    loadTagOptions,
+    addTags,
     visibleSets,
     matchCounts,
     children,

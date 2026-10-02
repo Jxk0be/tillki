@@ -24,7 +24,11 @@ export function toCsv<T>(rows: readonly T[], columns: readonly CsvColumn<T>[]): 
 /** Saves CSV text as a file in the browser. */
 export function downloadCsv(filename: string, csv: string) {
   // BOM so Excel opens UTF-8 (e.g. Japanese titles) correctly.
-  const blob = new Blob(['﻿', csv], { type: 'text/csv;charset=utf-8' })
+  downloadBlob(filename, new Blob(['﻿', csv], { type: 'text/csv;charset=utf-8' }))
+}
+
+/** Saves any file (CSV, PDF...) in the browser. */
+export function downloadBlob(filename: string, blob: Blob) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url

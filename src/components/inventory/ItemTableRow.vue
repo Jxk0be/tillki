@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { EllipsisVertical } from 'lucide-vue-next'
+import { EllipsisVertical, Tag } from 'lucide-vue-next'
 import ItemThumb from './ItemThumb.vue'
 import StatusChip from './StatusChip.vue'
 import { categoryLabels, conditionLabels } from '@/lib/labels'
@@ -40,22 +40,33 @@ defineEmits<{ toggle: [id: string]; menu: [item: InventoryItem] }>()
       <ItemThumb :path="item.cover_path" :source="item.cover_source" size="sm" :alt="item.name" />
     </td>
     <td class="px-3 font-mono text-xs whitespace-nowrap text-ink-2">{{ item.sku }}</td>
-    <td class="max-w-72 px-3">
+    <td class="max-w-72 min-w-56 px-3">
       <RouterLink
         :to="{ name: 'item-detail', params: { id: item.id } }"
         class="line-clamp-2 font-semibold hover:underline"
       >
         {{ item.name }}
       </RouterLink>
+      <div v-if="item.tags.length" class="mt-0.5 flex flex-wrap gap-1">
+        <RouterLink
+          v-for="tag in item.tags"
+          :key="tag"
+          :to="{ name: 'inventory', query: { tag } }"
+          class="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2 text-xs leading-5 whitespace-nowrap text-ink-2 hover:text-ink hover:underline"
+          :aria-label="`Show items tagged ${tag}`"
+        >
+          <Tag class="size-3" aria-hidden="true" />{{ tag }}
+        </RouterLink>
+      </div>
     </td>
-    <td class="px-3 whitespace-nowrap text-ink-2">
+    <td class="max-w-56 min-w-36 px-3 text-ink-2">
       <template v-if="item.template_id">
         <RouterLink
           :to="{ name: 'inventory', query: { view: 'sets', expand: item.template_id } }"
           class="hover:underline"
           >{{ item.template_name }}</RouterLink
         >
-        <span class="text-muted"> · {{ item.volume_number }}</span>
+        <span class="whitespace-nowrap text-muted"> · {{ item.volume_number }}</span>
       </template>
       <span v-else class="text-muted">—</span>
     </td>

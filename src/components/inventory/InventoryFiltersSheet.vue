@@ -26,6 +26,7 @@ import type { ItemCategory, ItemCondition, ItemStatus } from '@/types/inventory'
 const props = defineProps<{
   filters: InventoryFilters
   setOptions: { id: string; name: string }[]
+  tagOptions: string[]
 }>()
 const open = defineModel<boolean>('open', { required: true })
 const emit = defineEmits<{ apply: [filters: InventoryFilters] }>()
@@ -93,6 +94,20 @@ function apply() {
           ...setOptions.map((s) => ({ value: s.id, label: s.name })),
         ]"
         @update:model-value="draft.set = $event || null"
+      />
+
+      <BaseSelect
+        v-if="tagOptions.length || draft.tag"
+        :model-value="draft.tag ?? ''"
+        label="Tag"
+        :options="[
+          { value: '', label: 'Any tag' },
+          ...[...new Set([...tagOptions, ...(draft.tag ? [draft.tag] : [])])].map((t) => ({
+            value: t,
+            label: t,
+          })),
+        ]"
+        @update:model-value="draft.tag = $event || null"
       />
 
       <fieldset>

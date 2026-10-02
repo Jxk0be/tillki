@@ -121,11 +121,11 @@ const sortOptions = [
     <p v-else-if="visible.length === 0" class="py-8 text-center text-ink-2">
       No sets match "{{ search }}".
     </p>
-    <ul v-else class="grid gap-3 sm:grid-cols-2">
+    <ul v-else class="grid gap-3 sm:auto-rows-fr sm:grid-cols-2">
       <li v-for="s in visible" :key="s.id">
         <RouterLink
           :to="{ name: 'template-detail', params: { id: s.id } }"
-          class="flex gap-3 rounded-2xl border border-line bg-surface p-3 hover:border-ink-2"
+          class="flex h-full gap-3 rounded-2xl border border-line bg-surface p-3 hover:border-ink-2"
         >
           <ItemThumb :path="s.cover_path" size="lg" :alt="s.name" />
           <div class="min-w-0 flex-1">

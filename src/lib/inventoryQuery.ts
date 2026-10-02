@@ -63,6 +63,8 @@ export interface InventoryFilters {
   expand: string | null
   /** Days in stock, from the dashboard's aging chart. `max` null = no upper limit. */
   age: AgeRange | null
+  /** Only items carrying this tag (e.g. "box set 1-11"). */
+  tag: string | null
 }
 
 export interface AgeRange {
@@ -103,6 +105,7 @@ export const defaultFilters: Readonly<InventoryFilters> = {
   groupSort: 'name',
   expand: null,
   age: null,
+  tag: null,
 }
 
 function first(value: LocationQuery[string] | undefined): string | null {
@@ -136,6 +139,7 @@ export function parseInventoryQuery(query: LocationQuery): InventoryFilters {
     groupSort: oneOf(first(query.gsort), groupSorts) ?? defaultFilters.groupSort,
     expand: first(query.expand),
     age: parseAge(first(query.age)),
+    tag: normalizeTag(first(query.tag) ?? ''),
   }
 }
 
@@ -158,20 +162,29 @@ export function toInventoryQuery(f: InventoryFilters): LocationQueryRaw {
   if (f.groupSort !== defaultFilters.groupSort) q.gsort = f.groupSort
   if (f.expand) q.expand = f.expand
   if (f.age) q.age = formatAge(f.age)
+  if (f.tag) q.tag = f.tag
   return q
 }
 
 /** Filters that narrow down which items match (beyond view, sort and kind). */
 export function itemFiltersActive(f: InventoryFilters): boolean {
   return Boolean(
-    f.q.trim() || f.category || f.status.length || f.condition || f.noPhotos || f.archived || f.age,
+    f.q.trim() ||
+    f.category ||
+    f.status.length ||
+    f.condition ||
+    f.noPhotos ||
+    f.archived ||
+    f.age ||
+    f.tag,
   )
 }
 
 /** How many of the extra filters (the ones in the Filters sheet) are on. */
 export function extraFilterCount(f: InventoryFilters): number {
-  return [f.kind !== 'all', f.set, f.category, f.condition, f.noPhotos, f.archived].filter(Boolean)
-    .length
+  return [f.kind !== 'all', f.set, f.category, f.condition, f.noPhotos, f.archived, f.tag].filter(
+    Boolean,
+  ).length
 }
 
 /** Search text that's safe to put inside a PostgREST or() filter. */
@@ -181,4 +194,24 @@ export function searchPattern(q: string): string | null {
     .replace(/\s+/g, ' ')
     .trim()
   return cleaned ? `*${cleaned}*` : null
+}
+
+/** Tags are stored trimmed and lowercase (as TagInput saves them). Null when empty. */
+export function normalizeTag(tag: string): string | null {
+  const t = tag.trim().replace(/\s+/g, ' ').toLowerCase()
+  return t || null
+}
+
+/** A one-element Postgres array literal for a `cs` (contains) filter: {"box set 1-11"}. */
+export function tagArrayLiteral(tag: string): string {
+  return `{"${tag.replace(/[\\"]/g, (c) => `\\${c}`)}"}`
+}
+
+/**
+ * The search text as an exact-tag filter for PostgREST's or(), e.g.
+ * `tags.cs.{"box set 1-11"}`, so searching a tag's full name finds its items.
+ */
+export function searchTagFilter(q: string): string | null {
+  const tag = normalizeTag(q.replace(/[,(){}*%\\:"]/g, ' '))
+  return tag ? `tags.cs.${tagArrayLiteral(tag)}` : null
 }

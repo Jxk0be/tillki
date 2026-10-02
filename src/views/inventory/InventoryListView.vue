@@ -12,12 +12,15 @@ import {
   PackageSearch,
   Search,
   SlidersHorizontal,
+  Tag,
   X,
 } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseChip from '@/components/ui/BaseChip.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 import SkeletonRow from '@/components/ui/SkeletonRow.vue'
+import AddTagsSheet from '@/components/inventory/AddTagsSheet.vue'
+import ExportStockSheet from '@/components/inventory/ExportStockSheet.vue'
 import InventoryFiltersSheet from '@/components/inventory/InventoryFiltersSheet.vue'
 import InventorySummaryStrip from '@/components/inventory/InventorySummaryStrip.vue'
 import ItemActionsSheet from '@/components/inventory/ItemActionsSheet.vue'
@@ -61,6 +64,7 @@ const {
   summary,
   visibleSets,
   setOptions,
+  tagOptions,
   matchCounts,
   children,
   childrenLoading,
@@ -104,6 +108,7 @@ watchDebounced(
 )
 
 void store.loadSetOptions()
+void store.loadTagOptions()
 
 // ---------------------------------------------------------------- photos
 watch(
@@ -135,6 +140,7 @@ const views: { value: InventoryView; label: string }[] = [
 ]
 const quickStatuses: ItemStatus[] = ['in_stock', 'listed', 'sold', 'draft']
 const filtersOpen = ref(false)
+const exportOpen = ref(false)
 const extraCount = computed(() => extraFilterCount(filters.value))
 
 function toggleQuickStatus(status: ItemStatus) {
@@ -231,6 +237,22 @@ async function bulkArchive() {
   })
 }
 
+const tagSheetOpen = ref(false)
+const tagging = ref(false)
+
+async function tagSelected(tags: string[]) {
+  const ids = [...selected.value]
+  tagging.value = true
+  const result = await store.addTags(ids, tags)
+  tagging.value = false
+  if (!result.ok) {
+    toast.error(`Couldn't tag the selected items. ${result.message ?? ''}`.trim())
+    return
+  }
+  tagSheetOpen.value = false
+  toast.success(`Tagged ${ids.length} item${ids.length === 1 ? '' : 's'}.`)
+}
+
 function exportSelected() {
   const rows = items.value.filter((i) => selected.value.has(i.id))
   const csv = toCsv(rows, [
@@ -307,6 +329,14 @@ function exportSelected() {
             >{{ extraCount }}</span
           >
         </button>
+        <button
+          type="button"
+          class="hidden min-h-11 shrink-0 items-center gap-2 rounded-xl border-2 border-line bg-surface px-3 text-sm font-semibold lg:flex"
+          aria-haspopup="dialog"
+          @click="exportOpen = true"
+        >
+          <Download class="size-5" aria-hidden="true" /> Export
+        </button>
       </div>
 
       <div
@@ -337,6 +367,14 @@ function exportSelected() {
           :aria-label="`In stock ${ageLabel(filters.age)}. Remove this filter`"
           @toggle="update({ age: null })"
           >{{ ageLabel(filters.age) }} <X class="size-4" aria-hidden="true"
+        /></BaseChip>
+        <BaseChip
+          v-if="filters.tag"
+          selected
+          :aria-label="`Tagged ${filters.tag}. Remove this filter`"
+          @toggle="update({ tag: null })"
+          ><Tag class="size-4" aria-hidden="true" /> {{ filters.tag }}
+          <X class="size-4" aria-hidden="true"
         /></BaseChip>
       </div>
     </div>
@@ -480,6 +518,9 @@ function exportSelected() {
             <BaseButton size="sm" variant="ghost" @click="bulkArchive">
               <Archive class="size-4" aria-hidden="true" /> Archive
             </BaseButton>
+            <BaseButton size="sm" variant="ghost" @click="tagSheetOpen = true">
+              <Tag class="size-4" aria-hidden="true" /> Add tag
+            </BaseButton>
             <BaseButton size="sm" variant="ghost" @click="sellSelected">
               Sell as bundle
             </BaseButton>
@@ -528,10 +569,30 @@ function exportSelected() {
         }
       "
     />
+    <AddTagsSheet
+      v-model:open="tagSheetOpen"
+      :count="selected.size"
+      :suggestions="tagOptions"
+      :saving="tagging"
+      @save="tagSelected"
+    />
+    <ExportStockSheet v-model:open="exportOpen" :filters="filters" />
+    <Teleport to="#topbar-actions" defer>
+      <button
+        type="button"
+        class="grid size-11 place-items-center rounded-full lg:hidden"
+        aria-label="Export stock"
+        aria-haspopup="dialog"
+        @click="exportOpen = true"
+      >
+        <Download class="size-5" aria-hidden="true" />
+      </button>
+    </Teleport>
     <InventoryFiltersSheet
       v-model:open="filtersOpen"
       :filters="filters"
       :set-options="setOptions"
+      :tag-options="tagOptions"
       @apply="update($event)"
     />
     <ConfirmDialog

@@ -5,8 +5,11 @@ import {
   parseAge,
   extraFilterCount,
   itemFiltersActive,
+  normalizeTag,
   parseInventoryQuery,
   searchPattern,
+  searchTagFilter,
+  tagArrayLiteral,
   toInventoryQuery,
   type InventoryFilters,
 } from '../inventoryQuery'
@@ -36,6 +39,7 @@ describe('inventory URL query', () => {
       groupSort: 'missing',
       expand: 'abc',
       age: { min: 31, max: 60 },
+      tag: 'box set 1-11',
     }
     const query = toInventoryQuery(filters)
     expect(query).toMatchObject({
@@ -44,6 +48,7 @@ describe('inventory URL query', () => {
       nophotos: '1',
       gsort: 'missing',
       age: '31-60',
+      tag: 'box set 1-11',
     })
     expect(parseInventoryQuery(query as Record<string, string>)).toEqual(filters)
   })
@@ -91,5 +96,24 @@ describe('filter helpers', () => {
     expect(ageLabel({ min: 91, max: null })).toBe('Over 90 days')
     expect(ageLabel({ min: 31, max: 60 })).toBe('31-60 days')
     expect(itemFiltersActive({ ...defaultFilters, age: { min: 0, max: 30 } })).toBe(true)
+  })
+
+  it('filters by tag', () => {
+    expect(parseInventoryQuery({ tag: '  Box  Set 1-11 ' }).tag).toBe('box set 1-11')
+    expect(parseInventoryQuery({ tag: '' }).tag).toBeNull()
+    expect(normalizeTag('   ')).toBeNull()
+    expect(itemFiltersActive({ ...defaultFilters, tag: 'bundle' })).toBe(true)
+    expect(extraFilterCount({ ...defaultFilters, tag: 'bundle' })).toBe(1)
+  })
+
+  it('quotes tags for array filters', () => {
+    expect(tagArrayLiteral('box set 1-11')).toBe('{"box set 1-11"}')
+    expect(tagArrayLiteral('say "hi" \\ bye')).toBe('{"say \\"hi\\" \\\\ bye"}')
+  })
+
+  it('matches a whole tag from the search box', () => {
+    expect(searchTagFilter('Box Set 1-11')).toBe('tags.cs.{"box set 1-11"}')
+    expect(searchTagFilter('a,b (c)')).toBe('tags.cs.{"a b c"}')
+    expect(searchTagFilter(' , ')).toBeNull()
   })
 })
