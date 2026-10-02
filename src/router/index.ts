@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -154,12 +155,41 @@ const router = createRouter({
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: () => import('@/views/NotFoundView.vue'),
-      meta: { title: 'Not found' },
+      meta: { title: 'Not found', requiresAuth: true },
     },
   ],
 })
 
-// The auth guard (requiresAuth -> /login, non-admins -> /not-authorized) arrives in step 4.
+// Auth gate. Waits for the session to load before the first navigation.
+//  * signed out + requiresAuth -> /login (remembering where you were going)
+//  * signed in but not an admin -> /not-authorized
+//  * admins never see /login or /not-authorized
+router.beforeEach(async (to) => {
+  const auth = useAuthStore()
+  await auth.init()
+  const signedIn = auth.session !== null
+
+  if (to.name === 'auth-callback') return true
+
+  if (to.name === 'login') {
+    if (!signedIn) return true
+    return auth.isAdmin ? { name: 'inventory' } : { name: 'not-authorized' }
+  }
+
+  if (to.name === 'not-authorized') {
+    if (!signedIn) return { name: 'login' }
+    return auth.isAdmin ? { name: 'inventory' } : true
+  }
+
+  if (to.meta.requiresAuth) {
+    if (!signedIn) {
+      auth.rememberRedirect(to.fullPath)
+      return { name: 'login' }
+    }
+    if (!auth.isAdmin) return { name: 'not-authorized' }
+  }
+  return true
+})
 
 router.afterEach((to) => {
   document.title = to.meta.title ? `${to.meta.title} · Kura` : 'Kura'

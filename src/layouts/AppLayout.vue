@@ -1,27 +1,23 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { LogOut, Plus } from 'lucide-vue-next'
+import { Plus } from 'lucide-vue-next'
 import BaseSheet from '@/components/ui/BaseSheet.vue'
-import ThemeToggle from '@/components/ui/ThemeToggle.vue'
+import UserAvatar from '@/components/ui/UserAvatar.vue'
 import { useKeyboardOpen } from '@/composables/useKeyboardOpen'
-import { useToast } from '@/composables/useToast'
+import { useAuthStore } from '@/stores/auth'
+import AccountPanel from './AccountPanel.vue'
 import AddMenuSheet from './AddMenuSheet.vue'
 import { isAddRoute, isNavActive, primaryNav, secondaryNav, tabItems } from './navigation'
 
 const route = useRoute()
-const toast = useToast()
+const auth = useAuthStore()
 const keyboardOpen = useKeyboardOpen()
 const accountOpen = ref(false)
 const addOpen = ref(false)
 
 const title = computed(() => route.meta.title ?? 'Kura')
 const path = computed(() => route.path)
-
-function signOut() {
-  accountOpen.value = false
-  toast.show('Sign-in arrives in step 4.')
-}
 </script>
 
 <template>
@@ -87,13 +83,8 @@ function signOut() {
         class="mt-2 flex min-h-11 items-center gap-3 rounded-lg px-3 text-left font-medium text-ink-2 hover:bg-surface-2 hover:text-ink"
         @click="accountOpen = true"
       >
-        <span
-          class="grid size-8 place-items-center rounded-full bg-surface-2 text-sm font-bold"
-          aria-hidden="true"
-        >
-          ?
-        </span>
-        Account
+        <UserAvatar :src="auth.avatarUrl" :name="auth.displayName" size="sm" />
+        <span class="min-w-0 truncate">{{ auth.displayName || 'Account' }}</span>
       </button>
     </aside>
 
@@ -110,11 +101,7 @@ function signOut() {
             aria-label="Account menu"
             @click="accountOpen = true"
           >
-            <span
-              class="grid size-9 place-items-center rounded-full border-2 border-line bg-surface text-sm font-bold"
-              aria-hidden="true"
-              >?</span
-            >
+            <UserAvatar :src="auth.avatarUrl" :name="auth.displayName" />
           </button>
         </div>
       </header>
@@ -196,20 +183,8 @@ function signOut() {
 
     <AddMenuSheet v-model:open="addOpen" />
 
-    <!-- Account menu (fills in with real profile data in step 4) -->
     <BaseSheet v-model:open="accountOpen" title="Account">
-      <div class="space-y-5">
-        <p class="text-ink-2">Not signed in yet. Google sign-in arrives in step 4.</p>
-        <ThemeToggle />
-        <button
-          type="button"
-          class="flex min-h-11 w-full items-center gap-3 rounded-lg px-1 font-semibold text-danger"
-          @click="signOut"
-        >
-          <LogOut class="size-5" aria-hidden="true" />
-          Sign out
-        </button>
-      </div>
+      <AccountPanel @signed-out="accountOpen = false" />
     </BaseSheet>
   </div>
 </template>

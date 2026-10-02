@@ -1,17 +1,11 @@
 <script setup lang="ts">
-import { ChevronRight, LogOut } from 'lucide-vue-next'
+import { ChevronRight } from 'lucide-vue-next'
+import AccountPanel from '@/layouts/AccountPanel.vue'
 import { secondaryNav } from '@/layouts/navigation'
-import { useToast } from '@/composables/useToast'
-
-const toast = useToast()
-
-function signOut() {
-  toast.show('Sign-in arrives in step 4.')
-}
 </script>
 
 <template>
-  <div class="mx-auto max-w-xl lg:mx-0">
+  <div class="mx-auto max-w-xl space-y-6 lg:mx-0">
     <ul class="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
       <li v-for="item in secondaryNav" :key="item.to">
         <RouterLink
@@ -25,13 +19,8 @@ function signOut() {
       </li>
     </ul>
 
-    <button
-      type="button"
-      class="mt-6 flex min-h-14 w-full items-center gap-3 rounded-2xl border border-line bg-surface px-4 font-semibold text-danger hover:bg-surface-2"
-      @click="signOut"
-    >
-      <LogOut class="size-5" aria-hidden="true" />
-      Sign out
-    </button>
+    <section class="rounded-2xl border border-line bg-surface p-4" aria-label="Account">
+      <AccountPanel />
+    </section>
   </div>
 </template>
