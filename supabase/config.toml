@@ -425,3 +425,9 @@ enabled = true
 # works with the new asymmetric JWT signing keys.
 [functions.ask-kura]
 verify_jwt = false
+
+[functions.draft-listing]
+verify_jwt = false
+
+[functions.deal-check]
+verify_jwt = false

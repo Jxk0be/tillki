@@ -23,7 +23,7 @@ function errorFromUrl(): string | null {
   if (!description && !code) return null
   const text = (description ?? code ?? '').replace(/\+/g, ' ')
   if (/not allowed|isn.t allowed|403/i.test(text)) {
-    return "This Google account isn't allowed to use Kura. Sign in with one of the two shop accounts."
+    return "This Google account isn't allowed to use Tillki. Sign in with one of the two shop accounts."
   }
   if (/access_denied|cancel/i.test(text)) return 'Sign-in was cancelled.'
   return text

@@ -2,11 +2,20 @@
 // read-only tools (SQL functions and selects) as the signed-in user, under RLS.
 //
 // POST { message, threadId?, stream? = true } with the user's bearer token.
-//   stream: true  -> text/event-stream with events: tool, delta, done, error
+//   stream: true  -> text/event-stream with events: thread, tool, delta, done, error
 //   stream: false -> JSON { answer, threadId, messageId }
-import Anthropic from '@anthropic-ai/sdk'
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import type Anthropic from '@anthropic-ai/sdk'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { z } from 'zod'
+import {
+  aiErrorMessage,
+  anthropicFor,
+  background,
+  corsHeaders,
+  json,
+  logUsage,
+  requireAdmin,
+} from '../_shared/server.ts'
 import {
   HISTORY_LIMIT,
   MAX_ROUNDS,
@@ -20,77 +29,7 @@ import {
 import { TITLE_PROMPT, systemPrompt } from './prompts/system.ts'
 import { executeTool, tools } from './tools.ts'
 
-const DEFAULT_MODEL = 'claude-sonnet-5-5'
 const TITLE_MODEL = 'claude-haiku-4-5-20251001'
-
-// ----------------------------------------------------------------------------- env
-function env(name: string): string | undefined {
-  return Deno.env.get(name) || undefined
-}
-
-/** Newer projects expose keys as JSON maps ({"default": "sb_..."}); older ones as single values. */
-function key(single: string, map: string): string | undefined {
-  const direct = env(single)
-  if (direct) return direct
-  try {
-    const parsed = JSON.parse(env(map) ?? '{}') as Record<string, string>
-    return parsed.default ?? Object.values(parsed)[0]
-  } catch {
-    return undefined
-  }
-}
-
-const SUPABASE_URL = env('SUPABASE_URL') ?? ''
-const PUBLIC_KEY = key('SUPABASE_ANON_KEY', 'SUPABASE_PUBLISHABLE_KEYS') ?? ''
-const SERVICE_KEY = key('SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_SECRET_KEYS')
-
-// ----------------------------------------------------------------------------- http helpers
-const allowedOrigins = new Set(
-  ['http://localhost:5173', ...(env('ALLOWED_ORIGIN') ?? '').split(',')]
-    .map((o) => o.trim())
-    .filter(Boolean),
-)
-
-function corsHeaders(req: Request): Record<string, string> {
-  const origin = req.headers.get('Origin')
-  return {
-    ...(origin && allowedOrigins.has(origin) ? { 'Access-Control-Allow-Origin': origin } : {}),
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    Vary: 'Origin',
-  }
-}
-
-function json(req: Request, status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders(req), 'Content-Type': 'application/json; charset=utf-8' },
-  })
-}
-
-/** Lets a promise finish after the response is sent (title, usage logging). */
-function background(promise: Promise<unknown>) {
-  const runtime = (globalThis as { EdgeRuntime?: { waitUntil(p: Promise<unknown>): void } })
-    .EdgeRuntime
-  const safe = promise.catch((e) => console.error('background task failed', e))
-  if (runtime) runtime.waitUntil(safe)
-}
-
-/** A readable message for an Anthropic failure. Never includes keys or stack traces. */
-function aiErrorMessage(e: unknown): string {
-  if (e instanceof Anthropic.APIError) {
-    console.error('anthropic error', e.status, e.name)
-    if (e.status === 401 || e.status === 403)
-      return "Ask Kura's AI key isn't valid. Check the ANTHROPIC_API_KEY secret."
-    if (e.status === 429) return 'The AI service is rate limited right now. Try again in a minute.'
-    if (e.status === 529 || e.status === 503)
-      return 'The AI service is busy right now. Try again shortly.'
-    if (e.status === 400) return 'The AI service rejected the request. Try rephrasing.'
-    return "Couldn't reach the AI service. Try again."
-  }
-  console.error('ask-kura failure', e instanceof Error ? e.message : e)
-  return 'Something went wrong answering that. Try again.'
-}
 
 // ----------------------------------------------------------------------------- conversation
 interface ToolCallSummary {
@@ -180,24 +119,10 @@ const Body = z.object({
 })
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS')
-    return new Response(null, { status: 204, headers: corsHeaders(req) })
-  if (req.method !== 'POST') return json(req, 405, { error: 'Use POST.' })
-
   // ---- auth: run everything as the caller so RLS applies
-  const token = req.headers.get('Authorization')?.match(/^Bearer\s+(.+)$/i)?.[1]
-  if (!token) return json(req, 401, { error: 'Sign in first.' })
-  const db = createClient(SUPABASE_URL, PUBLIC_KEY, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  })
-  const { data: userData, error: userError } = await db.auth.getUser(token)
-  const user = userData?.user
-  if (userError || !user)
-    return json(req, 401, { error: 'Your session has expired. Sign in again.' })
-  const userId = user.id
-  const { data: isAdmin } = await db.rpc('is_admin')
-  if (isAdmin !== true) return json(req, 403, { error: "You don't have access to Kura." })
+  const caller = await requireAdmin(req)
+  if (caller instanceof Response) return caller
+  const { db, userId } = caller
 
   // ---- input
   let body: z.infer<typeof Body>
@@ -210,12 +135,9 @@ Deno.serve(async (req) => {
     return json(req, 400, { error: 'Send JSON like {"message": "..."}.' })
   }
 
-  const apiKey = env('ANTHROPIC_API_KEY')
-  if (!apiKey)
-    return json(req, 500, {
-      error: "Ask Kura isn't set up yet: the ANTHROPIC_API_KEY secret is missing.",
-    })
-  const model = env('CLAUDE_MODEL') ?? DEFAULT_MODEL
+  const ai = anthropicFor(req)
+  if (ai instanceof Response) return ai
+  const { anthropic, model } = ai
 
   // ---- rate limit: messages this user sent in the last hour (RLS limits to their threads)
   const since = new Date(Date.now() - 60 * 60 * 1000).toISOString()
@@ -231,14 +153,15 @@ Deno.serve(async (req) => {
 
   // ---- thread and history
   let threadId = body.threadId
-  const isNewThread = !threadId
+  let needsTitle = !threadId
   if (threadId) {
     const { data: thread } = await db
       .from('chat_threads')
-      .select('id')
+      .select('id, title')
       .eq('id', threadId)
       .maybeSingle()
     if (!thread) return json(req, 404, { error: "That chat doesn't exist." })
+    needsTitle = !thread.title
   } else {
     const { data: created, error } = await db.from('chat_threads').insert({}).select('id').single()
     if (error || !created) return json(req, 500, { error: "Couldn't start a new chat." })
@@ -253,23 +176,29 @@ Deno.serve(async (req) => {
     .limit(HISTORY_LIMIT)
   const history = toHistory([...(past ?? [])].reverse() as { role: string; content: string }[])
 
-  const { error: saveError } = await db
-    .from('chat_messages')
-    .insert({ thread_id: threadId, role: 'user', content: body.message })
-  if (saveError) return json(req, 500, { error: "Couldn't save your message." })
+  const unanswered = history.at(-1)?.role === 'user' ? (history.at(-1)?.content ?? '') : null
+  // Retry: the same question is already saved and unanswered, so don't save it twice.
+  const isRetry = unanswered !== null && unanswered.trim().endsWith(body.message)
+  if (!isRetry) {
+    const { error: saveError } = await db
+      .from('chat_messages')
+      .insert({ thread_id: threadId, role: 'user', content: body.message })
+    if (saveError) return json(req, 500, { error: "Couldn't save your message." })
+  }
 
   const { data: overview } = await db.rpc('rpc_overview', { p_tz: 'America/New_York' })
   const system = systemPrompt({ today: todayNY(), overview: overview?.[0] ?? null })
   const messages: Anthropic.MessageParam[] = [...history]
-  if (messages.at(-1)?.role === 'user') {
+  if (isRetry) {
+    // The question is already the last message.
+  } else if (unanswered !== null) {
     // An earlier question never got an answer; fold it into this one.
-    const last = messages.pop() as { content: string }
-    messages.push({ role: 'user', content: `${last.content}\n\n${body.message}` })
+    messages.pop()
+    messages.push({ role: 'user', content: `${unanswered}\n\n${body.message}` })
   } else {
     messages.push({ role: 'user', content: body.message })
   }
 
-  const anthropic = new Anthropic({ apiKey })
   const currentThread = threadId
 
   /** Saves the answer, bumps the thread, logs usage, and names a new thread. */
@@ -288,8 +217,13 @@ Deno.serve(async (req) => {
       .from('chat_threads')
       .update({ updated_at: new Date().toISOString() })
       .eq('id', currentThread)
-    background(logUsage(userId, model, result.inputTokens, result.outputTokens))
-    if (isNewThread) background(nameThread(anthropic, db, currentThread, body.message, userId))
+    background(
+      logUsage(userId, 'ask-kura', model, {
+        input_tokens: result.inputTokens,
+        output_tokens: result.outputTokens,
+      }),
+    )
+    if (needsTitle) background(nameThread(anthropic, db, currentThread, body.message, userId))
     return (saved?.id as string | undefined) ?? null
   }
 
@@ -308,7 +242,7 @@ Deno.serve(async (req) => {
       const messageId = await finish(result)
       return json(req, 200, { answer: result.text, threadId: currentThread, messageId })
     } catch (e) {
-      return json(req, 502, { error: aiErrorMessage(e), threadId: currentThread })
+      return json(req, 502, { error: aiErrorMessage(e, 'ask-kura'), threadId: currentThread })
     }
   }
 
@@ -325,6 +259,8 @@ Deno.serve(async (req) => {
           open = false // the browser went away; keep going so the answer is still saved
         }
       }
+      // Lets the app put a new chat in the list and the URL right away.
+      send('thread', { threadId: currentThread })
       try {
         const result = await converse({
           anthropic,
@@ -338,7 +274,7 @@ Deno.serve(async (req) => {
         const messageId = await finish(result)
         send('done', { threadId: currentThread, messageId })
       } catch (e) {
-        send('error', { message: aiErrorMessage(e), threadId: currentThread })
+        send('error', { message: aiErrorMessage(e, 'ask-kura'), threadId: currentThread })
       } finally {
         if (open) controller.close()
       }
@@ -355,22 +291,6 @@ Deno.serve(async (req) => {
 })
 
 // ----------------------------------------------------------------------------- side tasks
-async function logUsage(userId: string, model: string, input: number, output: number) {
-  if (!SERVICE_KEY) {
-    console.warn('No service key; skipping ai_usage logging.')
-    return
-  }
-  const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } })
-  const { error } = await admin.from('ai_usage').insert({
-    user_id: userId,
-    function_name: 'ask-kura',
-    model,
-    input_tokens: input,
-    output_tokens: output,
-  })
-  if (error) console.error('ai_usage insert failed', error.message)
-}
-
 async function nameThread(
   anthropic: Anthropic,
   db: SupabaseClient,
@@ -389,5 +309,5 @@ async function nameThread(
     .from('chat_threads')
     .update({ title: cleanTitle(text, question) })
     .eq('id', threadId)
-  await logUsage(userId, TITLE_MODEL, reply.usage.input_tokens, reply.usage.output_tokens)
+  await logUsage(userId, 'ask-kura', TITLE_MODEL, reply.usage)
 }

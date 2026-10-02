@@ -1,0 +1,52 @@
+# Kura on Netlify: a plain single-page website (no PWA, no service worker).
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# Every app route (/inventory/123, /ask/abc...) serves index.html; Vue Router takes it from there.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# index.html: always check for the latest version, so a deploy shows up on the next visit.
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+# Vite's hashed build files never change, so browsers can keep them for a year.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/vendor/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+
+# Security headers for every response.
+#  - Supabase (API, storage, Edge Functions, realtime) is the only backend.
+#  - Google sign-in is a redirect through Supabase, so it needs no script here;
+#    Google profile photos come from googleusercontent.com.
+#  - ISBN lookups call Google Books and Open Library from the browser.
+#  - Photo compression runs in a blob: Web Worker that loads /vendor/ from this site.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://btqazxppnppmhenwmhmu.supabase.co https://*.googleusercontent.com; media-src 'self' blob:; connect-src 'self' https://btqazxppnppmhenwmhmu.supabase.co wss://btqazxppnppmhenwmhmu.supabase.co https://www.googleapis.com https://openlibrary.org; worker-src 'self' blob:; frame-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self' https://btqazxppnppmhenwmhmu.supabase.co https://accounts.google.com"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Frame-Options = "DENY"
+    Permissions-Policy = "camera=(self), microphone=(), geolocation=(), payment=()"
+    Strict-Transport-Security = "max-age=31536000"

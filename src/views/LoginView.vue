@@ -28,7 +28,7 @@ async function continueWithGoogle() {
     >
       蔵
     </div>
-    <h1 class="text-4xl font-black tracking-tight">Kura</h1>
+    <h1 class="text-4xl font-black tracking-tight">Tillki</h1>
     <p class="mt-2 text-ink-2">Inventory and profit for our manga and merch shop.</p>
 
     <div class="mt-10 w-full">

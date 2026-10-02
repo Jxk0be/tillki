@@ -42,3 +42,6 @@ __screenshots__/
 .env
 .env.*
 !.env.example
+
+# Copied from node_modules by scripts/copy-vendor.mjs
+public/vendor/

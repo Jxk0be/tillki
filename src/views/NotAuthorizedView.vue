@@ -40,7 +40,7 @@ async function checkAgain() {
       <ShieldX class="size-8" aria-hidden="true" />
     </div>
     <h1 class="text-2xl font-black">No access</h1>
-    <p class="mt-2 text-ink-2">This Google account doesn't have access to Kura.</p>
+    <p class="mt-2 text-ink-2">This Google account doesn't have access to Tillki.</p>
     <p v-if="auth.email" class="mt-4 rounded-lg bg-surface-2 px-3 py-2 font-medium break-all">
       Signed in as {{ auth.email }}
     </p>

@@ -252,7 +252,7 @@ function exportSelected() {
     { header: 'Storage', value: (r) => r.storage_location },
     { header: 'Date entered', value: (r) => formatDate(r.created_at) },
   ])
-  downloadCsv(`kura-items-${todayIso()}.csv`, csv)
+  downloadCsv(`tillki-items-${todayIso()}.csv`, csv)
 }
 </script>
 

@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Plus } from 'lucide-vue-next'
 import BaseSheet from '@/components/ui/BaseSheet.vue'
 import UserAvatar from '@/components/ui/UserAvatar.vue'
+import { useAppSettings } from '@/composables/useAppSettings'
+import { useDataVersion } from '@/composables/useDataChanged'
 import { useKeyboardOpen } from '@/composables/useKeyboardOpen'
+import { useStaleBadge } from '@/composables/useStale'
 import { useAuthStore } from '@/stores/auth'
 import AccountPanel from './AccountPanel.vue'
 import AddMenuSheet from './AddMenuSheet.vue'
@@ -16,7 +19,21 @@ const keyboardOpen = useKeyboardOpen()
 const accountOpen = ref(false)
 const addOpen = ref(false)
 
-const title = computed(() => route.meta.title ?? 'Kura')
+const title = computed(() => route.meta.title ?? 'Tillki')
+const fullBleed = computed(() => route.meta.fullBleed === true)
+
+// A badge on the Dashboard tab while items are sitting past the stale limit.
+const stale = useStaleBadge()
+async function refreshStale() {
+  // The shell can mount for a moment before the sign-in redirect; only ask when signed in.
+  if (!auth.isAdmin) return
+  const settings = useAppSettings()
+  await settings.reload()
+  await stale.refresh(settings.staleDays.value)
+}
+onMounted(refreshStale)
+watch([useDataVersion(), () => auth.isAdmin], refreshStale)
+const staleLabel = computed(() => `${stale.count.value} stale items`)
 const path = computed(() => route.path)
 </script>
 
@@ -32,7 +49,7 @@ const path = computed(() => route.path)
 
     <!-- ===== Desktop sidebar (lg+) ===== -->
     <aside
-      class="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-line bg-surface px-3 py-5 lg:flex"
+      class="sticky top-0 hidden h-dvh print:hidden w-64 shrink-0 flex-col border-r border-line bg-surface px-3 py-5 lg:flex"
       aria-label="Main"
     >
       <RouterLink to="/inventory" class="mb-6 flex items-center gap-2.5 rounded-lg px-3 py-1">
@@ -41,7 +58,7 @@ const path = computed(() => route.path)
           aria-hidden="true"
           >蔵</span
         >
-        <span class="text-xl font-black tracking-tight">Kura</span>
+        <span class="text-xl font-black tracking-tight">Tillki</span>
       </RouterLink>
 
       <button
@@ -74,6 +91,12 @@ const path = computed(() => route.path)
             />
             <component :is="item.icon" class="size-5" aria-hidden="true" />
             {{ item.label }}
+            <span
+              v-if="item.to === '/dashboard' && stale.visible.value"
+              class="ml-auto rounded-full bg-accent px-2 text-xs font-bold text-white"
+              :aria-label="staleLabel"
+              >{{ stale.count.value }}</span
+            >
           </RouterLink>
         </template>
       </nav>
@@ -91,10 +114,12 @@ const path = computed(() => route.path)
     <div class="flex min-w-0 flex-1 flex-col">
       <!-- ===== Mobile top bar ===== -->
       <header
-        class="sticky top-0 z-30 border-b border-line bg-bg/90 pt-safe backdrop-blur lg:hidden"
+        class="sticky top-0 z-30 border-b border-line bg-bg/90 pt-safe backdrop-blur lg:hidden print:hidden"
       >
         <div class="flex h-14 items-center gap-3 pr-safe pl-safe">
           <h1 class="min-w-0 flex-1 truncate pl-4 text-lg font-bold">{{ title }}</h1>
+          <!-- Pages can add their own top bar buttons here (Teleport to #topbar-actions). -->
+          <div id="topbar-actions" class="flex items-center" />
           <button
             type="button"
             class="mr-2 grid size-11 place-items-center rounded-full"
@@ -110,16 +135,23 @@ const path = computed(() => route.path)
       <main
         id="main"
         tabindex="-1"
-        class="flex-1 px-4 pt-4 pb-[calc(6rem+env(safe-area-inset-bottom))] outline-none lg:px-8 lg:pt-8 lg:pb-12"
+        class="flex-1 outline-none"
+        :class="
+          fullBleed
+            ? 'min-h-0'
+            : 'px-4 pt-4 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:px-8 lg:pt-8 lg:pb-12'
+        "
       >
-        <h1 class="mb-6 hidden text-3xl font-black tracking-tight lg:block">{{ title }}</h1>
+        <h1 v-if="!fullBleed" class="mb-6 hidden text-3xl font-black tracking-tight lg:block">
+          {{ title }}
+        </h1>
         <slot />
       </main>
     </div>
 
     <!-- ===== Mobile bottom tab bar ===== -->
     <nav
-      class="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 pb-safe backdrop-blur transition-transform duration-200 lg:hidden"
+      class="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 pb-safe backdrop-blur transition-transform duration-200 lg:hidden print:hidden"
       :class="{ 'translate-y-full': keyboardOpen }"
       aria-label="Main"
     >
@@ -131,6 +163,12 @@ const path = computed(() => route.path)
             :class="{ 'font-bold text-ink': isNavActive(item.to, path, { mobile: true }) }"
             :aria-current="isNavActive(item.to, path, { mobile: true }) ? 'page' : undefined"
           >
+            <span
+              v-if="item.to === '/dashboard' && stale.visible.value"
+              class="absolute top-1.5 left-1/2 ml-2 min-w-5 rounded-full bg-accent px-1 text-center text-[10px] leading-5 font-bold text-white"
+              :aria-label="staleLabel"
+              >{{ stale.count.value }}</span
+            >
             <span
               v-if="isNavActive(item.to, path, { mobile: true })"
               class="absolute top-0 h-1 w-8 rounded-b-full bg-accent"

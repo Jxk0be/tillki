@@ -29,6 +29,10 @@ export function useTheme() {
     initialized = true
     watchEffect(() => {
       document.documentElement.classList.toggle('dark', isDark.value)
+      // Keep Safari's and Chrome's toolbar color in step with a manual choice too.
+      document
+        .querySelectorAll('meta[name="theme-color"]')
+        .forEach((m) => m.setAttribute('content', isDark.value ? '#121317' : '#f4f5f2'))
     })
   }
 

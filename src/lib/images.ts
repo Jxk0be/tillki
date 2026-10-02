@@ -16,6 +16,9 @@ export async function compressPhoto(file: File): Promise<CompressedPhoto> {
     maxSizeMB: 0.3,
     maxWidthOrHeight: 1600,
     useWebWorker: true,
+    // Served from our own site (copied by scripts/copy-vendor.mjs) instead of the
+    // library's default CDN, so the Content Security Policy only trusts us.
+    libURL: new URL('/vendor/browser-image-compression.js', window.location.origin).href,
     initialQuality: 0.82,
   }
   let blob: Blob = await imageCompression(file, { ...options, fileType: 'image/webp' })

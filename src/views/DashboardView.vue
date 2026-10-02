@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { LayoutDashboard, RefreshCw } from 'lucide-vue-next'
+import { Clock, HardDriveDownload, LayoutDashboard, RefreshCw, X } from 'lucide-vue-next'
 import AgingChart from '@/components/charts/AgingChart.vue'
 import ChartCard from '@/components/charts/ChartCard.vue'
 import InventoryValueChart from '@/components/charts/InventoryValueChart.vue'
@@ -14,7 +14,10 @@ import TopSetsChart from '@/components/charts/TopSetsChart.vue'
 import BaseChip from '@/components/ui/BaseChip.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import { useAppSettings } from '@/composables/useAppSettings'
+import { useBackupStatus } from '@/composables/useBackup'
 import { useDashboard, type AgingBucket } from '@/composables/useDashboard'
+import { useStaleBadge } from '@/composables/useStale'
 import {
   daysInRange,
   describeRange,
@@ -35,6 +38,12 @@ import { formatCents, formatCompactCents } from '@/lib/money'
 
 const route = useRoute()
 const router = useRouter()
+
+// ---------------------------------------------------------------- reminders
+const settings = useAppSettings()
+const stale = useStaleBadge()
+const backup = useBackupStatus()
+const backupHidden = ref(false)
 
 // ---------------------------------------------------------------- range (in the URL)
 const selection = computed(() => parseRangeQuery(route.query))
@@ -175,6 +184,57 @@ function openBucket(b: AgingBucket) {
 
 <template>
   <div class="mx-auto max-w-7xl space-y-4">
+    <!-- Reminders -->
+    <div
+      v-if="stale.visible.value"
+      class="flex items-center gap-3 rounded-xl border border-line bg-surface px-3 py-2 text-sm"
+      role="status"
+    >
+      <Clock class="size-5 shrink-0 text-accent" aria-hidden="true" />
+      <p class="min-w-0 flex-1">
+        <strong>{{ stale.count.value }}</strong> item{{
+          stale.count.value === 1 ? ' has' : 's have'
+        }}
+        been sitting over {{ settings.staleDays.value }} days.
+        <RouterLink to="/tools/stale" class="font-semibold text-primary underline"
+          >Review</RouterLink
+        >
+      </p>
+      <button
+        type="button"
+        class="grid size-11 shrink-0 place-items-center rounded-full hover:bg-surface-2"
+        aria-label="Dismiss the stale stock reminder"
+        @click="stale.dismiss()"
+      >
+        <X class="size-4" aria-hidden="true" />
+      </button>
+    </div>
+    <div
+      v-if="backup.due.value && !backupHidden && !nothingAtAll"
+      class="flex items-center gap-3 rounded-xl border border-line bg-surface px-3 py-2 text-sm"
+      role="status"
+    >
+      <HardDriveDownload class="size-5 shrink-0 text-ink-2" aria-hidden="true" />
+      <p class="min-w-0 flex-1">
+        {{
+          backup.daysSince.value === null
+            ? "You haven't downloaded a backup yet."
+            : `Your last backup was ${backup.daysSince.value} days ago.`
+        }}
+        <RouterLink to="/settings" class="font-semibold text-primary underline"
+          >Export everything</RouterLink
+        >
+      </p>
+      <button
+        type="button"
+        class="grid size-11 shrink-0 place-items-center rounded-full hover:bg-surface-2"
+        aria-label="Hide the backup reminder for now"
+        @click="backupHidden = true"
+      >
+        <X class="size-4" aria-hidden="true" />
+      </button>
+    </div>
+
     <!-- Range picker -->
     <div class="space-y-2">
       <div

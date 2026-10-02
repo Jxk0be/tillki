@@ -12,6 +12,7 @@ import {
   PackagePlus,
   PackageX,
   Pencil,
+  Sparkles,
   Tag,
 } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -22,6 +23,7 @@ import ItemActionsSheet from '@/components/inventory/ItemActionsSheet.vue'
 import ItemGallery from '@/components/inventory/ItemGallery.vue'
 import StatusChip from '@/components/inventory/StatusChip.vue'
 import VolumeStrip from '@/components/templates/VolumeStrip.vue'
+import DraftListingSheet from '@/components/sales/DraftListingSheet.vue'
 import EditSaleSheet from '@/components/sales/EditSaleSheet.vue'
 import MarkSoldSheet from '@/components/sales/MarkSoldSheet.vue'
 import { getSale, type SaleRow } from '@/composables/useSales'
@@ -47,6 +49,7 @@ const { item, images, events, sales, acquisitions, addedBy, lots, loading, notFo
   detail
 
 const saleActions = useSaleActions(() => detail.load())
+const draftOpen = ref(false)
 const { sellItem, sellOpen } = saleActions
 
 const { run, confirmArchiveOpen, archiving, confirmArchive } = useItemActions({
@@ -293,6 +296,9 @@ const sources = computed(() =>
           </BaseButton>
           <BaseButton v-if="item.units_left > 0" @click="run('sell', item)">
             <PackageCheck class="size-4" aria-hidden="true" /> Mark sold
+          </BaseButton>
+          <BaseButton v-if="item.units_left > 0" variant="secondary" @click="draftOpen = true">
+            <Sparkles class="size-4" aria-hidden="true" /> Draft listing
           </BaseButton>
           <BaseButton
             v-if="item.kind === 'one_off'"
@@ -551,6 +557,13 @@ const sources = computed(() =>
       danger
       :loading="archiving"
       @confirm="confirmArchive"
+    />
+    <DraftListingSheet
+      v-if="item"
+      v-model:open="draftOpen"
+      :item-ids="[item.id]"
+      :title="item.name"
+      @saved="detail.load()"
     />
   </div>
 </template>

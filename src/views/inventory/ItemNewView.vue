@@ -3,6 +3,8 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { BookCopy, BookPlus, ChevronRight, PackagePlus, Search } from 'lucide-vue-next'
 import ItemForm from '@/components/inventory/ItemForm.vue'
+import type { ItemFormValues } from '@/composables/useItemForm'
+import { itemCategories, itemConditions } from '@/lib/labels'
 import { useInventoryStore } from '@/stores/inventory'
 
 /**
@@ -20,6 +22,26 @@ const duplicateFrom = computed(() =>
   typeof route.query.duplicate === 'string' ? route.query.duplicate : undefined,
 )
 const showForm = computed(() => type.value === 'one_off' || !!duplicateFrom.value)
+
+/** Starting values from the URL (the deal checker's "Bought it"): name, cost (cents), qty, category, condition. */
+const prefill = computed<Partial<ItemFormValues> | undefined>(() => {
+  const q = route.query
+  const text = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined)
+  const out: Partial<ItemFormValues> = {}
+  const name = text(q.name)
+  if (name) out.name = name.slice(0, 200)
+  const cost = Number(text(q.cost))
+  if (Number.isInteger(cost) && cost >= 0 && text(q.cost)) out.cost = (cost / 100).toFixed(2)
+  const qty = Number(text(q.qty))
+  if (Number.isInteger(qty) && qty > 0 && qty <= 500) out.quantity = qty
+  const category = text(q.category)
+  if (category && (itemCategories as string[]).includes(category))
+    out.category = category as ItemFormValues['category']
+  const condition = text(q.condition)
+  if (condition && (itemConditions as string[]).includes(condition))
+    out.condition = condition as ItemFormValues['condition']
+  return Object.keys(out).length ? out : undefined
+})
 
 const search = ref('')
 const sets = computed(() => {
@@ -42,7 +64,12 @@ function choose(next: 'one_off' | 'set') {
 </script>
 
 <template>
-  <ItemForm v-if="showForm" :key="duplicateFrom ?? 'new'" :duplicate-from="duplicateFrom" />
+  <ItemForm
+    v-if="showForm"
+    :key="duplicateFrom ?? 'new'"
+    :duplicate-from="duplicateFrom"
+    :prefill="prefill"
+  />
 
   <div v-else-if="type === 'set'" class="mx-auto max-w-xl">
     <h2 class="mb-1 text-lg font-bold">Which set?</h2>

@@ -9,9 +9,11 @@ import {
   ClipboardCopy,
   LibraryBig,
   Pencil,
+  Sparkles,
   Trash2,
 } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
+import DraftListingSheet from '@/components/sales/DraftListingSheet.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import ItemActionsSheet from '@/components/inventory/ItemActionsSheet.vue'
@@ -94,6 +96,11 @@ async function copyShoppingList() {
 
 // ---------------------------------------------------------------- selection and bulk actions
 const selected = ref(new Set<string>())
+const draftOpen = ref(false)
+/** Selected volumes in volume order, for the bundle listing. */
+const selectedIds = computed(() =>
+  volumes.value.filter((v) => selected.value.has(v.id)).map((v) => v.id),
+)
 const bulkStatus = ref<ItemStatus | ''>('')
 const bulkPrice = ref('')
 
@@ -376,6 +383,9 @@ async function removeSet() {
             <BaseButton type="submit" size="sm" variant="secondary">Set price</BaseButton>
           </form>
           <BaseButton size="sm" variant="ghost" @click="sellSelected">Sell as bundle</BaseButton>
+          <BaseButton size="sm" variant="ghost" @click="draftOpen = true">
+            <Sparkles class="size-4" aria-hidden="true" /> Draft bundle listing
+          </BaseButton>
           <BaseButton size="sm" variant="ghost" @click="archiveSelected"
             ><Archive class="size-4" aria-hidden="true" /> Archive</BaseButton
           >
@@ -472,6 +482,12 @@ async function removeSet() {
       danger
       :loading="busy"
       @confirm="removeSet"
+    />
+    <DraftListingSheet
+      v-if="set"
+      v-model:open="draftOpen"
+      :item-ids="selectedIds"
+      :title="`${set.name}, ${selectedIds.length} volumes`"
     />
   </div>
 </template>

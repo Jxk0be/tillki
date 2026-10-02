@@ -63,7 +63,7 @@ export const addChoices: AddChoice[] = [
 export const primaryNav: NavItem[] = [
   { label: 'Inventory', to: '/inventory', icon: Package },
   { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
-  { label: 'Ask Kura', to: '/ask', icon: MessageCircle },
+  { label: 'Ask Tillki', to: '/ask', icon: MessageCircle },
 ]
 
 /** Desktop sidebar, second group, and the destinations listed on /more. */

@@ -22,7 +22,8 @@ An item is either a **one-off** or a **volume of a set**.
 - **Prefer the Supabase MCP** (project id `btqazxppnppmhenwmhmu`) for database work: `execute_sql` for queries, `list_tables` / `list_migrations`, `get_advisors` after every schema change. For schema changes: write the migration file in `supabase/migrations`, show the SQL, apply it with `apply_migration` after approval, then rename the local file's timestamp prefix to the version `list_migrations` reports so the repo and the database agree. The CLI (`npx supabase ...`) remains the fallback.
 - Never run `supabase db reset` against the hosted project (it wipes everything).
 - **Demo data is currently loaded** (from `supabase/seed-demo.sql`): sets/items tagged `demo`, lots and expenses noted `Demo data`. Wipe it before real use with `npx supabase db query --linked -f supabase/demo-wipe.sql`. Never add real copies to a demo set (they inherit the tag). The admin allowlist is `supabase/seed.sql`, applied with the same `db query -f` command.
-- **Edge Functions** can't run locally (`supabase functions serve` needs Docker). Check them with `npx -y deno@2 check index.ts` in the function's folder, then deploy straight to the hosted project with `npx supabase functions deploy <name> --use-api` and test there. Secrets (`ANTHROPIC_API_KEY`, `CLAUDE_MODEL`, `ALLOWED_ORIGIN`) are set by the user with `npx supabase secrets set` or in the dashboard; never ask for or handle the key. `ask-kura` has `verify_jwt = false` and checks the token and `is_admin()` itself.
+- **Edge Functions** can't run locally (`supabase functions serve` needs Docker). Check them with `npx -y deno@2 check index.ts` in the function's folder, then deploy straight to the hosted project with `npx supabase functions deploy <name> --use-api` and test there. Secrets (`ANTHROPIC_API_KEY`, `CLAUDE_MODEL`, `ALLOWED_ORIGIN`) are set by the user with `npx supabase secrets set` or in the dashboard; never ask for or handle the key. Functions (`ask-kura`, `draft-listing`, `deal-check`) share auth, CORS, usage logging and AI error handling in `supabase/functions/_shared/server.ts`, have `verify_jwt = false` and check the token and `is_admin()` themselves. Each keeps its pure logic in a `lib.ts` (no Deno imports) that Vitest tests from `src/lib/__tests__`.
+- **Deploying the site** is documented in `docs/deploy.md` (Netlify, URLs to update, secrets, backups, device test script). `netlify.toml` carries the CSP; when adding a new external service, add it there too. Check a production build with the real headers via `node scripts/serve-dist.mjs` (port 4173).
 - **Database tests** run against the hosted project with `npm run test:db` (`scripts/test-db.mjs`), always inside a rolled-back transaction; `supabase test db` needs Docker, so don't use it. Test an unapplied migration first with `npm run test:db -- --prelude supabase/migrations/<file>.sql`.
 
 ## Stack
@@ -86,6 +87,10 @@ supabase/
   demo-wipe.sql removes the demo data
 scripts/
   test-db.mjs   runs supabase/tests on the hosted project without Docker
+  copy-vendor.mjs  copies the image-compression worker library into public/vendor (pre dev/build)
+  serve-dist.mjs   serves dist/ with netlify.toml's headers for a local production check
+docs/
+  deploy.md     production setup, backups and the real-device test script
 ```
 
 ## Commands

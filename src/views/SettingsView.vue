@@ -4,9 +4,12 @@ import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 import ThemeToggle from '@/components/ui/ThemeToggle.vue'
+import { Download } from 'lucide-vue-next'
 import { useAppSettings } from '@/composables/useAppSettings'
+import { exportEverything, useBackupStatus } from '@/composables/useBackup'
 import { notifyDataChanged } from '@/composables/useDataChanged'
 import { useToast } from '@/composables/useToast'
+import { formatDateTime } from '@/lib/dates'
 import { platformLabels } from '@/lib/labels'
 import { parseMoneyToCents } from '@/lib/money'
 import type { Json } from '@/types/database'
@@ -90,6 +93,21 @@ async function save() {
 }
 
 const platformOptions = platforms.map((p) => ({ value: p, label: platformLabels[p] }))
+
+// ---------------------------------------------------------------- backup
+const backup = useBackupStatus()
+const exporting = ref<string | null>(null)
+async function runExport() {
+  exporting.value = 'starting'
+  try {
+    const rows = await exportEverything((table) => (exporting.value = table))
+    toast.success(`Exported ${rows} rows. Keep the zip somewhere safe.`)
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : "Couldn't export.")
+  } finally {
+    exporting.value = null
+  }
+}
 </script>
 
 <template>
@@ -97,6 +115,28 @@ const platformOptions = platforms.map((p) => ({ value: p, label: platformLabels[
     <section class="rounded-2xl border border-line bg-surface p-4 lg:p-6">
       <h2 class="mb-4 text-lg font-bold">Appearance</h2>
       <ThemeToggle />
+    </section>
+
+    <section
+      class="rounded-2xl border border-line bg-surface p-4 lg:p-6"
+      aria-labelledby="backup-heading"
+    >
+      <h2 id="backup-heading" class="text-lg font-bold">Backup</h2>
+      <p class="mt-1 text-sm text-ink-2">
+        Downloads a zip with a spreadsheet (CSV) and a JSON file for every table: items, sets,
+        sales, expenses, lots and history. Do this once a month and keep it somewhere safe.
+      </p>
+      <p class="mt-2 text-sm">
+        Last export:
+        <strong>{{
+          backup.lastExportAt.value ? formatDateTime(backup.lastExportAt.value) : 'never'
+        }}</strong>
+        <span v-if="backup.due.value" class="text-danger"> · time for a new one</span>
+      </p>
+      <BaseButton class="mt-3" :loading="exporting !== null" @click="runExport">
+        <Download class="size-4" aria-hidden="true" />
+        {{ exporting ? `Exporting ${exporting}…` : 'Export everything' }}
+      </BaseButton>
     </section>
 
     <form class="space-y-6" novalidate @submit.prevent="save">

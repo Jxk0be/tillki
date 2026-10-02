@@ -45,7 +45,12 @@ import { formatCents, parseMoneyToCents } from '@/lib/money'
  * Add or edit a one-off item, or edit a volume of a set (title, description
  * and cover then come from the set unless this copy has its own).
  */
-const props = defineProps<{ itemId?: string; duplicateFrom?: string }>()
+const props = defineProps<{
+  itemId?: string
+  duplicateFrom?: string
+  /** Starting values for a new item (e.g. "Bought it" from the deal checker). */
+  prefill?: Partial<ItemFormValues>
+}>()
 
 const router = useRouter()
 const toast = useToast()
@@ -114,6 +119,8 @@ onMounted(async () => {
       // Duplicate: same details, but no photos, a new SKU, and one copy.
       values.value = { ...loaded, quantity: 1, purchasedAt: emptyValues().purchasedAt }
     }
+  } else if (props.prefill) {
+    values.value = { ...values.value, ...props.prefill }
   }
   loading.value = false
   await nextTick()

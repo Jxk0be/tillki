@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import { ChevronRight } from 'lucide-vue-next'
+import { ChevronRight, Scale } from 'lucide-vue-next'
 import BaseSheet from '@/components/ui/BaseSheet.vue'
 import { addChoices } from './navigation'
 
@@ -34,5 +34,12 @@ function go(to: string) {
         </button>
       </li>
     </ul>
+    <button
+      type="button"
+      class="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg text-sm font-semibold text-primary hover:bg-surface-2"
+      @click="go('/tools/deal')"
+    >
+      <Scale class="size-4" aria-hidden="true" /> Not bought yet? Check the deal first
+    </button>
   </BaseSheet>
 </template>

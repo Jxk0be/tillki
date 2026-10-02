@@ -120,3 +120,70 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Chat answers rendered from markdown (see src/lib/chatMarkdown.ts). */
+@layer components {
+  .chat-md {
+    overflow-wrap: anywhere;
+    line-height: 1.6;
+  }
+  .chat-md > * + * {
+    margin-top: 0.6em;
+  }
+  .chat-md ul {
+    list-style: disc;
+    padding-left: 1.25rem;
+  }
+  .chat-md ol {
+    list-style: decimal;
+    padding-left: 1.25rem;
+  }
+  .chat-md li + li {
+    margin-top: 0.2em;
+  }
+  .chat-md h1,
+  .chat-md h2,
+  .chat-md h3 {
+    font-weight: 700;
+    font-size: 1.05em;
+  }
+  .chat-md strong {
+    font-weight: 700;
+  }
+  .chat-md code {
+    border-radius: 0.25rem;
+    background: var(--kura-surface-2);
+    padding: 0.1em 0.3em;
+    font-size: 0.9em;
+  }
+  .chat-md a {
+    color: var(--kura-primary);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .chat-md .md-table {
+    overflow-x: auto;
+    border: 1px solid var(--kura-line);
+    border-radius: 0.75rem;
+  }
+  .chat-md table {
+    min-width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .chat-md th,
+  .chat-md td {
+    padding: 0.4rem 0.75rem;
+    white-space: nowrap;
+    text-align: left;
+  }
+  .chat-md th {
+    background: var(--kura-surface-2);
+    font-weight: 600;
+  }
+  .chat-md tr + tr td {
+    border-top: 1px solid var(--kura-line);
+  }
+}

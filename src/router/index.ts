@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth'
 
 declare module 'vue-router' {
@@ -8,6 +9,8 @@ declare module 'vue-router' {
     /** 'bare' renders without the tab bar / sidebar (login, auth callback). */
     layout?: 'app' | 'bare'
     requiresAuth?: boolean
+    /** The page fills the screen between the top bar and tab bar and scrolls itself (chat). */
+    fullBleed?: boolean
   }
 }
 
@@ -137,13 +140,45 @@ const router = createRouter({
       name: 'ask',
       component: () => import('@/views/AskView.vue'),
       props: true,
-      meta: { title: 'Ask Kura', requiresAuth: true },
+      meta: { title: 'Ask Tillki', requiresAuth: true, fullBleed: true },
+    },
+    {
+      // Links from chat answers: resolves a SKU like MG-00042 to its item.
+      path: '/sku/:sku',
+      name: 'sku',
+      component: () => import('@/views/NotFoundView.vue'),
+      meta: { title: 'Item', requiresAuth: true },
+      beforeEnter: async (to) => {
+        const sku = String(to.params.sku).toUpperCase()
+        const { data } = await supabase.from('items').select('id').eq('sku', sku).maybeSingle()
+        return data
+          ? { name: 'item-detail', params: { id: data.id }, replace: true }
+          : { name: 'inventory', query: { q: sku }, replace: true }
+      },
     },
     {
       path: '/tools',
       name: 'tools',
       component: () => import('@/views/ToolsView.vue'),
       meta: { title: 'Tools', requiresAuth: true },
+    },
+    {
+      path: '/tools/deal',
+      name: 'deal-check',
+      component: () => import('@/views/tools/DealCheckView.vue'),
+      meta: { title: 'Deal checker', requiresAuth: true },
+    },
+    {
+      path: '/tools/stale',
+      name: 'stale-stock',
+      component: () => import('@/views/tools/StaleStockView.vue'),
+      meta: { title: 'Stale stock', requiresAuth: true },
+    },
+    {
+      path: '/tools/taxes',
+      name: 'taxes',
+      component: () => import('@/views/tools/TaxesView.vue'),
+      meta: { title: 'Taxes and exports', requiresAuth: true },
     },
     {
       path: '/settings',
@@ -199,7 +234,7 @@ router.beforeEach(async (to) => {
 })
 
 router.afterEach((to) => {
-  document.title = to.meta.title ? `${to.meta.title} · Kura` : 'Kura'
+  document.title = to.meta.title ? `${to.meta.title} · Tillki` : 'Tillki'
 })
 
 export default router

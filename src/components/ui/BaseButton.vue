@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { LoaderCircle } from 'lucide-vue-next'
+import { useOnline } from '@vueuse/core'
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger'
 type Size = 'md' | 'sm'
@@ -16,6 +17,10 @@ const props = withDefaults(
   }>(),
   { variant: 'primary', size: 'md', type: 'button', loading: false, disabled: false, block: false },
 )
+
+// Save buttons (type="submit") wait while the network is down; nothing is cached offline.
+const online = useOnline()
+const offlineBlocked = computed(() => props.type === 'submit' && !online.value)
 
 const variantClasses: Record<Variant, string> = {
   primary: 'bg-primary text-primary-ink hover:opacity-90',
@@ -37,7 +42,8 @@ const classes = computed(() => [
   <button
     :type="type"
     :class="classes"
-    :disabled="disabled || loading"
+    :disabled="disabled || loading || offlineBlocked"
+    :title="offlineBlocked ? 'Offline: saving is paused' : undefined"
     :aria-busy="loading || undefined"
   >
     <LoaderCircle v-if="loading" class="size-5 animate-spin" aria-hidden="true" />

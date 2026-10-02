@@ -76,7 +76,7 @@ function onKeydown(e: KeyboardEvent) {
     <template v-else>
       <div
         ref="track"
-        class="flex snap-x snap-mandatory overflow-x-auto rounded-2xl bg-surface-2 [scrollbar-width:none]"
+        class="flex snap-x snap-mandatory overflow-x-auto overscroll-contain rounded-2xl bg-surface-2 [scrollbar-width:none]"
         tabindex="0"
         :aria-label="`${alt} photos`"
         @scroll.passive="onScroll"
