@@ -252,10 +252,15 @@ function finish(itemId: string, addAnother: boolean) {
   }
   leaving = true
   saving.value = true
+  const target = router.resolve({ name: 'item-detail', params: { id: itemId } })
+  // Came here from the item's page: step back to it, so the history doesn't hold
+  // the item twice (its "Inventory" back button would then need two taps).
+  if (window.history.state?.back === target.fullPath) {
+    router.back()
+    return
+  }
   // Stay busy while the item page loads; only re-enable if navigation fails.
-  router
-    .replace({ name: 'item-detail', params: { id: itemId } })
-    .catch(() => (saving.value = false))
+  router.replace(target).catch(() => (saving.value = false))
 }
 
 async function save(addAnother = false) {
