@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import type { LotCandidate } from '@/lib/lotItems'
 import { notifyDataChanged } from './useDataChanged'
 
 export interface LotRow {
@@ -145,4 +146,53 @@ export async function splitLotCost(
   if (error) throw error
   if (!dryRun) notifyDataChanged()
   return data ?? []
+}
+
+/** Every unarchived item with its acquisitions, for picking what came in a lot. */
+export async function listLotCandidates(): Promise<LotCandidate[]> {
+  const { data, error } = await supabase
+    .from('items')
+    .select(
+      'id, sku, name, series, category, condition, item_acquisitions(lot_id, quantity, lots(name))',
+    )
+    .is('archived_at', null)
+    .order('name')
+    .limit(5000)
+  if (error) throw error
+  return (data ?? []).map((i) => ({
+    id: i.id,
+    sku: i.sku ?? '',
+    name: i.name,
+    series: i.series,
+    category: i.category,
+    condition: i.condition,
+    acquisitions: i.item_acquisitions.map((a) => ({
+      lot_id: a.lot_id,
+      lot_name: a.lots?.name ?? null,
+      quantity: a.quantity,
+    })),
+  }))
+}
+
+/**
+ * Move every copy of the `add` items into the lot (out of whatever lot they
+ * were in), and take the `remove` items' copies out of it.
+ */
+export async function setLotItems(lotId: string, add: string[], remove: string[]) {
+  if (add.length) {
+    const { error } = await supabase
+      .from('item_acquisitions')
+      .update({ lot_id: lotId })
+      .in('item_id', add)
+    if (error) throw error
+  }
+  if (remove.length) {
+    const { error } = await supabase
+      .from('item_acquisitions')
+      .update({ lot_id: null })
+      .eq('lot_id', lotId)
+      .in('item_id', remove)
+    if (error) throw error
+  }
+  if (add.length || remove.length) notifyDataChanged()
 }

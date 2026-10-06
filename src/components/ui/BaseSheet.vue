@@ -14,8 +14,10 @@ const props = withDefaults(
     description?: string
     /** Hide the visible title (it's still announced to screen readers). */
     hideTitle?: boolean
+    /** A wider dialog on desktop, for sheets that hold a table. */
+    wide?: boolean
   }>(),
-  { hideTitle: false },
+  { hideTitle: false, wide: false },
 )
 
 const open = defineModel<boolean>('open', { required: true })
@@ -151,8 +153,11 @@ const panelStyle = computed(() =>
           :aria-labelledby="titleId"
           :aria-describedby="props.description ? descriptionId : undefined"
           tabindex="-1"
-          class="pointer-events-auto flex max-h-[88dvh] w-full flex-col rounded-t-2xl bg-surface shadow-2xl outline-none lg:max-h-[85dvh] lg:max-w-lg lg:rounded-2xl"
-          :class="{ 'transition-transform duration-200': !dragging }"
+          class="pointer-events-auto flex max-h-[88dvh] w-full flex-col rounded-t-2xl bg-surface shadow-2xl outline-none lg:max-h-[85dvh] lg:rounded-2xl"
+          :class="[
+            wide ? 'lg:max-w-3xl' : 'lg:max-w-lg',
+            { 'transition-transform duration-200': !dragging },
+          ]"
           :style="panelStyle"
           @keydown="onKeydown"
         >
