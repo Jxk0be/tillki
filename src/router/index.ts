@@ -157,6 +157,18 @@ const router = createRouter({
       },
     },
     {
+      path: '/radar',
+      name: 'radar',
+      component: () => import('@/views/radar/RadarView.vue'),
+      meta: { title: 'Buy Radar', requiresAuth: true },
+    },
+    {
+      path: '/radar/matches',
+      name: 'radar-matches',
+      component: () => import('@/views/radar/RadarMatchesView.vue'),
+      meta: { title: 'AniList matches', requiresAuth: true },
+    },
+    {
       path: '/tools',
       name: 'tools',
       component: () => import('@/views/ToolsView.vue'),

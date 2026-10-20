@@ -431,3 +431,7 @@ verify_jwt = false
 
 [functions.deal-check]
 verify_jwt = false
+
+# Buy Radar: called by pg_cron with a Vault-checked header, or by an admin.
+[functions.anilist-sync]
+verify_jwt = false

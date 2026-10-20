@@ -92,6 +92,51 @@ export type Database = {
         }
         Relationships: []
       }
+      anilist_snapshots: {
+        Row: {
+          anilist_id: number
+          anime_airing: boolean
+          captured_on: string
+          created_at: string
+          favourites: number | null
+          has_upcoming_anime: boolean
+          mean_score: number | null
+          next_episode_at: string | null
+          popularity: number | null
+          status: string | null
+          trending: number | null
+          volumes: number | null
+        }
+        Insert: {
+          anilist_id: number
+          anime_airing?: boolean
+          captured_on: string
+          created_at?: string
+          favourites?: number | null
+          has_upcoming_anime?: boolean
+          mean_score?: number | null
+          next_episode_at?: string | null
+          popularity?: number | null
+          status?: string | null
+          trending?: number | null
+          volumes?: number | null
+        }
+        Update: {
+          anilist_id?: number
+          anime_airing?: boolean
+          captured_on?: string
+          created_at?: string
+          favourites?: number | null
+          has_upcoming_anime?: boolean
+          mean_score?: number | null
+          next_episode_at?: string | null
+          popularity?: number | null
+          status?: string | null
+          trending?: number | null
+          volumes?: number | null
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           key: string
@@ -109,6 +154,58 @@ export type Database = {
           value?: Json
         }
         Relationships: []
+      }
+      buy_scores: {
+        Row: {
+          action: string
+          components: Json
+          created_at: string
+          reasons: string[]
+          scored_on: string
+          template_id: string
+          total: number
+        }
+        Insert: {
+          action: string
+          components?: Json
+          created_at?: string
+          reasons?: string[]
+          scored_on: string
+          template_id: string
+          total: number
+        }
+        Update: {
+          action?: string
+          components?: Json
+          created_at?: string
+          reasons?: string[]
+          scored_on?: string
+          template_id?: string
+          total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'buy_scores_template_id_fkey'
+            columns: ['template_id']
+            isOneToOne: false
+            referencedRelation: 'item_templates'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'buy_scores_template_id_fkey'
+            columns: ['template_id']
+            isOneToOne: false
+            referencedRelation: 'series_performance'
+            referencedColumns: ['template_id']
+          },
+          {
+            foreignKeyName: 'buy_scores_template_id_fkey'
+            columns: ['template_id']
+            isOneToOne: false
+            referencedRelation: 'v_templates'
+            referencedColumns: ['id']
+          },
+        ]
       }
       chat_messages: {
         Row: {
@@ -416,6 +513,9 @@ export type Database = {
       }
       item_templates: {
         Row: {
+          anilist_candidates: Json | null
+          anilist_id: number | null
+          anilist_match: string | null
           archived_at: string | null
           category: Database['public']['Enums']['item_category']
           created_at: string
@@ -423,6 +523,7 @@ export type Database = {
           default_condition: Database['public']['Enums']['item_condition'] | null
           default_cost_cents: number | null
           default_list_price_cents: number | null
+          demographic: string | null
           description: string | null
           id: string
           is_ongoing: boolean
@@ -436,6 +537,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          anilist_candidates?: Json | null
+          anilist_id?: number | null
+          anilist_match?: string | null
           archived_at?: string | null
           category?: Database['public']['Enums']['item_category']
           created_at?: string
@@ -443,6 +547,7 @@ export type Database = {
           default_condition?: Database['public']['Enums']['item_condition'] | null
           default_cost_cents?: number | null
           default_list_price_cents?: number | null
+          demographic?: string | null
           description?: string | null
           id?: string
           is_ongoing?: boolean
@@ -456,6 +561,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          anilist_candidates?: Json | null
+          anilist_id?: number | null
+          anilist_match?: string | null
           archived_at?: string | null
           category?: Database['public']['Enums']['item_category']
           created_at?: string
@@ -463,6 +571,7 @@ export type Database = {
           default_condition?: Database['public']['Enums']['item_condition'] | null
           default_cost_cents?: number | null
           default_list_price_cents?: number | null
+          demographic?: string | null
           description?: string | null
           id?: string
           is_ongoing?: boolean
@@ -580,6 +689,13 @@ export type Database = {
             foreignKeyName: 'items_template_id_fkey'
             columns: ['template_id']
             isOneToOne: false
+            referencedRelation: 'series_performance'
+            referencedColumns: ['template_id']
+          },
+          {
+            foreignKeyName: 'items_template_id_fkey'
+            columns: ['template_id']
+            isOneToOne: false
             referencedRelation: 'v_templates'
             referencedColumns: ['id']
           },
@@ -629,6 +745,67 @@ export type Database = {
           },
         ]
       }
+      price_snapshots: {
+        Row: {
+          captured_on: string
+          created_at: string
+          id: string
+          item_scope: string
+          listing_count: number | null
+          max_cents: number | null
+          median_cents: number | null
+          min_cents: number | null
+          source: string
+          template_id: string
+        }
+        Insert: {
+          captured_on?: string
+          created_at?: string
+          id?: string
+          item_scope: string
+          listing_count?: number | null
+          max_cents?: number | null
+          median_cents?: number | null
+          min_cents?: number | null
+          source: string
+          template_id: string
+        }
+        Update: {
+          captured_on?: string
+          created_at?: string
+          id?: string
+          item_scope?: string
+          listing_count?: number | null
+          max_cents?: number | null
+          median_cents?: number | null
+          min_cents?: number | null
+          source?: string
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'price_snapshots_template_id_fkey'
+            columns: ['template_id']
+            isOneToOne: false
+            referencedRelation: 'item_templates'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'price_snapshots_template_id_fkey'
+            columns: ['template_id']
+            isOneToOne: false
+            referencedRelation: 'series_performance'
+            referencedColumns: ['template_id']
+          },
+          {
+            foreignKeyName: 'price_snapshots_template_id_fkey'
+            columns: ['template_id']
+            isOneToOne: false
+            referencedRelation: 'v_templates'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -658,6 +835,86 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      radar_runs: {
+        Row: {
+          detail: Json
+          finished_at: string | null
+          id: string
+          kind: string
+          ok: boolean | null
+          started_at: string
+        }
+        Insert: {
+          detail?: Json
+          finished_at?: string | null
+          id?: string
+          kind: string
+          ok?: boolean | null
+          started_at?: string
+        }
+        Update: {
+          detail?: Json
+          finished_at?: string | null
+          id?: string
+          kind?: string
+          ok?: boolean | null
+          started_at?: string
+        }
+        Relationships: []
+      }
+      radar_watchlist: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          max_buy_cents: number | null
+          note: string | null
+          template_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          max_buy_cents?: number | null
+          note?: string | null
+          template_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          max_buy_cents?: number | null
+          note?: string | null
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'radar_watchlist_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'radar_watchlist_template_id_fkey'
+            columns: ['template_id']
+            isOneToOne: true
+            referencedRelation: 'item_templates'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'radar_watchlist_template_id_fkey'
+            columns: ['template_id']
+            isOneToOne: true
+            referencedRelation: 'series_performance'
+            referencedColumns: ['template_id']
+          },
+          {
+            foreignKeyName: 'radar_watchlist_template_id_fkey'
+            columns: ['template_id']
+            isOneToOne: true
+            referencedRelation: 'v_templates'
+            referencedColumns: ['id']
+          },
+        ]
       }
       sales: {
         Row: {
@@ -769,6 +1026,13 @@ export type Database = {
             foreignKeyName: 'template_images_template_id_fkey'
             columns: ['template_id']
             isOneToOne: false
+            referencedRelation: 'series_performance'
+            referencedColumns: ['template_id']
+          },
+          {
+            foreignKeyName: 'template_images_template_id_fkey'
+            columns: ['template_id']
+            isOneToOne: false
             referencedRelation: 'v_templates'
             referencedColumns: ['id']
           },
@@ -776,6 +1040,60 @@ export type Database = {
       }
     }
     Views: {
+      series_performance: {
+        Row: {
+          avg_cost_cents: number | null
+          avg_net_cents: number | null
+          avg_sale_cents: number | null
+          category: Database['public']['Enums']['item_category'] | null
+          margin_pct: number | null
+          median_days_to_sell: number | null
+          name: string | null
+          sample_size: number | null
+          sold_last_30d: number | null
+          sold_last_90d: number | null
+          stale_count: number | null
+          template_id: string | null
+          units_bought: number | null
+          units_on_hand: number | null
+          units_sold: number | null
+        }
+        Relationships: []
+      }
+      series_platform_performance: {
+        Row: {
+          avg_net_cents: number | null
+          margin_pct: number | null
+          median_days_to_sell: number | null
+          platform: Database['public']['Enums']['sales_platform'] | null
+          sample_size: number | null
+          template_id: string | null
+          units_sold: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'items_template_id_fkey'
+            columns: ['template_id']
+            isOneToOne: false
+            referencedRelation: 'item_templates'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'items_template_id_fkey'
+            columns: ['template_id']
+            isOneToOne: false
+            referencedRelation: 'series_performance'
+            referencedColumns: ['template_id']
+          },
+          {
+            foreignKeyName: 'items_template_id_fkey'
+            columns: ['template_id']
+            isOneToOne: false
+            referencedRelation: 'v_templates'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       v_items: {
         Row: {
           acquisition_count: number | null
@@ -829,6 +1147,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: 'item_templates'
             referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'items_template_id_fkey'
+            columns: ['template_id']
+            isOneToOne: false
+            referencedRelation: 'series_performance'
+            referencedColumns: ['template_id']
           },
           {
             foreignKeyName: 'items_template_id_fkey'
@@ -899,6 +1224,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: 'item_templates'
             referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'items_template_id_fkey'
+            columns: ['template_id']
+            isOneToOne: false
+            referencedRelation: 'series_performance'
+            referencedColumns: ['template_id']
           },
           {
             foreignKeyName: 'items_template_id_fkey'
@@ -1103,6 +1435,8 @@ export type Database = {
         Returns: undefined
       }
       is_admin: { Args: never; Returns: boolean }
+      radar_call_function: { Args: { p_name: string }; Returns: number }
+      radar_cron_token_ok: { Args: { p_token: string }; Returns: boolean }
       record_bundle_sale: {
         Args: {
           p_alloc_mode?: string

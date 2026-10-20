@@ -87,6 +87,34 @@ export async function requireAdmin(req: Request): Promise<Caller | Response> {
   return { db, userId: data.user.id, token }
 }
 
+/** A client with the service role, for jobs that write tables admins can only read. */
+export function serviceClient(): SupabaseClient | null {
+  if (!SUPABASE_URL || !SERVICE_KEY) return null
+  return createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } })
+}
+
+/**
+ * For Buy Radar jobs: accepts pg_cron (x-radar-cron header, checked against the
+ * token in Vault) or a signed-in admin. Returns a service-role client either way.
+ */
+export async function requireAdminOrCron(
+  req: Request,
+): Promise<{ db: SupabaseClient; trigger: 'cron' | 'manual' } | Response> {
+  if (req.method === 'OPTIONS')
+    return new Response(null, { status: 204, headers: corsHeaders(req) })
+  const db = serviceClient()
+  if (!db) return json(req, 500, { error: 'The function is missing its service key.' })
+  const cronToken = req.headers.get('x-radar-cron')
+  if (cronToken) {
+    const { data: ok } = await db.rpc('radar_cron_token_ok', { p_token: cronToken })
+    if (ok !== true) return json(req, 403, { error: 'Bad cron token.' })
+    return { db, trigger: 'cron' }
+  }
+  const caller = await requireAdmin(req)
+  if (caller instanceof Response) return caller
+  return { db, trigger: 'manual' }
+}
+
 /** The Anthropic client and model, or a Response explaining the missing secret. */
 export function anthropicFor(req: Request): { anthropic: Anthropic; model: string } | Response {
   const apiKey = env('ANTHROPIC_API_KEY')
