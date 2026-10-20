@@ -169,6 +169,12 @@ const router = createRouter({
       meta: { title: 'AniList matches', requiresAuth: true },
     },
     {
+      path: '/radar/discover',
+      name: 'radar-discover',
+      component: () => import('@/views/radar/RadarDiscoverView.vue'),
+      meta: { title: 'Discover manga', requiresAuth: true },
+    },
+    {
       path: '/radar/lot',
       name: 'radar-lot',
       component: () => import('@/views/radar/RadarLotView.vue'),

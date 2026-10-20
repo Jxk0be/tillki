@@ -478,3 +478,63 @@ export async function findByIsbn(
     ? { template_id: data.template_id, volume_number: data.volume_number }
     : null
 }
+
+// ----------------------------------------------------------------------------- discover
+export type DiscoverSort = 'trending' | 'popular' | 'new'
+
+export interface DiscoverItem {
+  anilist_id: number
+  title: string
+  alt_title: string | null
+  cover_url: string | null
+  status: string | null
+  volumes: number | null
+  country: string | null
+  trending: number
+  popularity: number
+  mean_score: number | null
+  genres: string[]
+  start_year: number | null
+  url: string
+  anime_upcoming: boolean
+  anime_airing: boolean
+  /** Our set for this series, if we already have one. */
+  template_id: string | null
+}
+
+/** A page of AniList's trending, most popular or new manga, marked with what we already have. */
+export function discoverManga(opts: {
+  sort: DiscoverSort
+  include_manhwa: boolean
+  page: number
+}): Promise<{ items: DiscoverItem[]; has_next: boolean }> {
+  return callFunction('radar-discover', opts)
+}
+
+/**
+ * Starts tracking a series we don't stock yet: creates an empty manga set linked
+ * to AniList and puts it on the watchlist. The nightly sync then snapshots and
+ * scores it like any other set. Returns the new set's id.
+ */
+export async function watchFromAniList(item: DiscoverItem): Promise<string> {
+  const finished = item.status === 'FINISHED'
+  const { data, error } = await supabase
+    .from('item_templates')
+    .insert({
+      name: item.title,
+      category: 'manga',
+      anilist_id: item.anilist_id,
+      anilist_match: 'confirmed',
+      total_volumes: finished && item.volumes ? item.volumes : null,
+      is_ongoing: item.status === 'RELEASING' || item.status === 'HIATUS',
+    })
+    .select('id')
+    .single()
+  if (error) throw new Error(error.message)
+  const { error: watchError } = await supabase
+    .from('radar_watchlist')
+    .insert({ template_id: data.id })
+  if (watchError) throw new Error(watchError.message)
+  notifyDataChanged()
+  return data.id
+}

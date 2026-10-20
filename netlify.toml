@@ -44,7 +44,7 @@
 [[headers]]
   for = "/*"
   [headers.values]
-    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://btqazxppnppmhenwmhmu.supabase.co https://*.googleusercontent.com; media-src 'self' blob:; connect-src 'self' https://btqazxppnppmhenwmhmu.supabase.co wss://btqazxppnppmhenwmhmu.supabase.co https://www.googleapis.com https://openlibrary.org; worker-src 'self' blob:; frame-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self' https://btqazxppnppmhenwmhmu.supabase.co https://accounts.google.com"
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://btqazxppnppmhenwmhmu.supabase.co https://s4.anilist.co https://*.googleusercontent.com; media-src 'self' blob:; connect-src 'self' https://btqazxppnppmhenwmhmu.supabase.co wss://btqazxppnppmhenwmhmu.supabase.co https://www.googleapis.com https://openlibrary.org; worker-src 'self' blob:; frame-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self' https://btqazxppnppmhenwmhmu.supabase.co https://accounts.google.com"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     X-Frame-Options = "DENY"

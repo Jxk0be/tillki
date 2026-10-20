@@ -4,12 +4,13 @@ Buy Radar scores every manga set each night and says **Buy**, **Finish set**, **
 
 ## Where things are in the app
 
-| Where                                  | What                                                                                                                                                                                       |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **More → Buy Radar** (`/radar`)        | Health line, weekly buy list, filters and sort, the ranked list. Tap a set to open its detail sheet.                                                                                       |
-| Detail sheet                           | Score breakdown, AniList popularity chart, our sales (with the platform split), market prices, missing volumes, watchlist, and "Ask about this series".                                    |
-| **Check a lot** (`/radar/lot`)         | Scan or type the volumes in a lot and enter the asking price. You get Good buy / Fair / Pass and the most you should pay. "Buy and add these volumes" opens Add volumes already filled in. |
-| **AniList matches** (`/radar/matches`) | Confirm or fix which AniList series each set is.                                                                                                                                           |
+| Where                                  | What                                                                                                                                                                                                                                                                                                |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **More → Buy Radar** (`/radar`)        | Health line, weekly buy list, filters and sort, the ranked list. Tap a set to open its detail sheet.                                                                                                                                                                                                |
+| Detail sheet                           | Score breakdown, AniList popularity chart, our sales (with the platform split), market prices, missing volumes, watchlist, and "Ask about this series".                                                                                                                                             |
+| **Check a lot** (`/radar/lot`)         | Scan or type the volumes in a lot and enter the asking price. You get Good buy / Fair / Pass and the most you should pay. "Buy and add these volumes" opens Add volumes already filled in.                                                                                                          |
+| **Discover** (`/radar/discover`)       | AniList's trending, new-and-rising and most-popular manga, including series you don't stock, from the `radar-discover` function (live, cached 30 minutes, nothing stored). **Watch** creates an empty set linked to AniList and adds it to the watchlist, so the nightly sync tracks and scores it. |
+| **AniList matches** (`/radar/matches`) | Confirm or fix which AniList series each set is.                                                                                                                                                                                                                                                    |
 
 ## The jobs
 

@@ -441,3 +441,6 @@ verify_jwt = false
 
 [functions.ebay-sync]
 verify_jwt = false
+
+[functions.radar-discover]
+verify_jwt = false

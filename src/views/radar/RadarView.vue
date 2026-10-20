@@ -331,6 +331,12 @@ const matchNote = (r: RadarRow) =>
 
     <div class="flex flex-wrap gap-2">
       <RouterLink
+        :to="{ name: 'radar-discover' }"
+        class="inline-flex min-h-11 items-center gap-2 rounded-xl border border-line bg-surface px-4 text-sm font-semibold hover:border-ink-2"
+      >
+        <Flame class="size-4" aria-hidden="true" /> Discover trending manga
+      </RouterLink>
+      <RouterLink
         :to="{ name: 'radar-lot' }"
         class="inline-flex min-h-11 items-center gap-2 rounded-xl border border-line bg-surface px-4 text-sm font-semibold hover:border-ink-2"
       >
