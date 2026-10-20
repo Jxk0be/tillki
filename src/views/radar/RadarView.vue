@@ -4,10 +4,12 @@ import {
   Ban,
   CircleAlert,
   CircleCheck,
+  CircleMinus,
   Clapperboard,
   Flame,
   LibraryBig,
   Pause,
+  PackageSearch,
   Radar,
   RefreshCw,
   ShoppingCart,
@@ -16,39 +18,57 @@ import {
 } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseChip from '@/components/ui/BaseChip.vue'
+import BaseSelect from '@/components/ui/BaseSelect.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import RadarDetailSheet from '@/components/radar/RadarDetailSheet.vue'
+import RadarDigestCard from '@/components/radar/RadarDigestCard.vue'
 import { useDataVersion } from '@/composables/useDataChanged'
 import {
   latestAniListRun,
+  latestDigest,
+  latestRun,
   listRadarSets,
   listScores,
   listSnapshots,
+  listWatchlist,
+  runDigest,
   startAniListSync,
+  type RadarDigest,
   type RadarRun,
+  type WatchEntry,
 } from '@/composables/useRadar'
 import { useToast } from '@/composables/useToast'
 import { formatDateTime } from '@/lib/dates'
 import {
   actionLabels,
-  anilistUrl,
   buildRadarRows,
+  defaultRadarFilters,
+  filterRadarRows,
   formatChange,
   isStale,
   type RadarAction,
+  type RadarFilters,
   type RadarRow,
+  type RadarSort,
 } from '@/lib/radar'
 
 /**
  * Buy Radar: manga sets ranked by tonight's buy score, with the action and the
- * reasons behind it. See docs/buy-radar-plan.md.
+ * reasons behind it, the weekly Claude buy list, and a detail sheet per set.
+ * See docs/buy-radar-plan.md.
  */
 const toast = useToast()
 const rows = ref<RadarRow[]>([])
 const run = ref<RadarRun | null>(null)
+const ebayRun = ref<RadarRun | null>(null)
+const digestRun = ref<RadarRun | null>(null)
+const digest = ref<RadarDigest | null>(null)
+const watchlist = ref<WatchEntry[]>([])
 const loading = ref(true)
 const error = ref('')
 const syncing = ref(false)
-const filter = ref<RadarAction | 'all'>('all')
+const digesting = ref(false)
+const filters = ref<RadarFilters>({ ...defaultRadarFilters })
 let poll: ReturnType<typeof setInterval> | null = null
 
 async function load() {
@@ -65,6 +85,17 @@ async function load() {
     rows.value = buildRadarRows(sets, snapshots, scores)
     run.value = lastRun
     error.value = ''
+    // The extras (eBay, buy list, watchlist) shouldn't take the list down if one fails.
+    const [lastEbay, lastDigestRun, lastDigest, watch] = await Promise.allSettled([
+      latestRun('ebay'),
+      latestRun('digest'),
+      latestDigest(),
+      listWatchlist(),
+    ])
+    ebayRun.value = lastEbay.status === 'fulfilled' ? lastEbay.value : null
+    digestRun.value = lastDigestRun.status === 'fulfilled' ? lastDigestRun.value : null
+    digest.value = lastDigest.status === 'fulfilled' ? lastDigest.value : null
+    watchlist.value = watch.status === 'fulfilled' ? watch.value : []
   } catch (e) {
     error.value = e instanceof Error ? e.message : "Couldn't load the radar."
   } finally {
@@ -74,6 +105,7 @@ async function load() {
 onMounted(load)
 watch(useDataVersion(), load)
 
+// ---------------------------------------------------------------- refresh
 const running = computed(
   () =>
     !!run.value &&
@@ -122,9 +154,77 @@ async function refresh() {
   }
 }
 
-const healthy = computed(() => !!run.value?.ok && !isStale(run.value.finished_at, new Date()))
+async function writeDigest() {
+  digesting.value = true
+  try {
+    await runDigest()
+    toast.success('New buy list written.')
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : "Couldn't write the buy list.")
+  } finally {
+    digesting.value = false
+  }
+}
+
+// ---------------------------------------------------------------- health
+type Health = 'ok' | 'stale' | 'off'
+interface HealthLine {
+  label: string
+  state: Health
+  text: string
+}
+function healthOf(r: RadarRun | null, hours: number, never: string): HealthLine['state'] {
+  if (!r) return never === 'off' ? 'off' : 'stale'
+  if (r.skipped) return 'off'
+  return r.ok && !isStale(r.finished_at, new Date(), hours) ? 'ok' : 'stale'
+}
+const health = computed<HealthLine[]>(() => {
+  const when = (r: RadarRun | null) => (r ? formatDateTime(r.finished_at ?? r.started_at) : 'never')
+  return [
+    {
+      label: 'AniList and scores',
+      state: healthOf(run.value, 36, 'stale'),
+      text:
+        syncing.value || running.value
+          ? 'Updating now…'
+          : `${run.value?.ok === false ? 'Failed' : 'Updated'} ${when(run.value)}${run.value?.snapshots !== null && run.value?.snapshots !== undefined ? ` · ${run.value.snapshots} series` : ''}`,
+    },
+    {
+      label: 'eBay prices',
+      state: healthOf(ebayRun.value, 36, 'off'),
+      text:
+        !ebayRun.value || ebayRun.value.skipped
+          ? 'Not set up yet'
+          : `Updated ${when(ebayRun.value)}`,
+    },
+    {
+      label: 'Weekly buy list',
+      state: healthOf(digestRun.value, 24 * 8, 'off'),
+      text: digestRun.value
+        ? `${digestRun.value.ok === false ? 'Failed' : 'Written'} ${when(digestRun.value)}`
+        : 'Not written yet',
+    },
+  ]
+})
+const healthIcon: Record<Health, Component> = {
+  ok: CircleCheck,
+  stale: CircleAlert,
+  off: CircleMinus,
+}
+const healthColor: Record<Health, string> = {
+  ok: 'text-success',
+  stale: 'text-accent',
+  off: 'text-ink-2',
+}
+
+// ---------------------------------------------------------------- list
 const needsMatch = computed(
   () => rows.value.filter((r) => r.match === 'review' || r.match === 'pending').length,
+)
+const watched = computed(() => new Set(watchlist.value.map((w) => w.template_id)))
+const names = computed(() => new Map(rows.value.map((r) => [r.id, r.name])))
+const publishers = computed(() =>
+  [...new Set(rows.value.map((r) => r.publisher).filter((p): p is string => !!p))].sort(),
 )
 
 const actionOrder: RadarAction[] = ['buy', 'finish_set', 'hold', 'avoid']
@@ -145,10 +245,47 @@ const counts = computed(() => {
   for (const r of rows.value) if (r.score) c[r.score.action]++
   return c
 })
-const shown = computed(() =>
-  filter.value === 'all' ? rows.value : rows.value.filter((r) => r.score?.action === filter.value),
-)
+const shown = computed(() => filterRadarRows(rows.value, filters.value, watched.value))
 const anyScores = computed(() => rows.value.some((r) => r.score))
+const filtering = computed(
+  () =>
+    filters.value.publisher !== null ||
+    filters.value.animeOnly ||
+    filters.value.watchOnly ||
+    filters.value.action !== 'all',
+)
+
+const sortOptions: { value: RadarSort; label: string }[] = [
+  { value: 'score', label: 'Score' },
+  { value: 'momentum', label: 'AniList momentum' },
+  { value: 'velocity', label: 'How fast we sell it' },
+  { value: 'margin', label: 'Our margin' },
+]
+const sortModel = computed<RadarSort | ''>({
+  get: () => filters.value.sort,
+  set: (v) => (filters.value = { ...filters.value, sort: v || 'score' }),
+})
+const publisherModel = computed<string>({
+  get: () => filters.value.publisher ?? '',
+  set: (v) => (filters.value = { ...filters.value, publisher: v || null }),
+})
+
+// ---------------------------------------------------------------- detail
+const detailRow = ref<RadarRow | null>(null)
+const detailOpen = ref(false)
+function openDetail(id: string) {
+  const r = rows.value.find((x) => x.id === id)
+  if (!r) return
+  detailRow.value = r
+  detailOpen.value = true
+}
+const detailWatch = computed(
+  () => watchlist.value.find((w) => w.template_id === detailRow.value?.id) ?? null,
+)
+watch(rows, () => {
+  if (detailRow.value)
+    detailRow.value = rows.value.find((r) => r.id === detailRow.value?.id) ?? null
+})
 
 const number = (n: number | null | undefined) =>
   n === null || n === undefined ? '—' : new Intl.NumberFormat('en-US').format(n)
@@ -170,44 +307,44 @@ const matchNote = (r: RadarRow) =>
     </p>
 
     <!-- Health line -->
-    <div
-      class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-surface p-3"
-      :class="healthy ? 'border-line' : 'border-accent/40'"
-      role="status"
-    >
-      <p class="flex items-start gap-2 text-sm">
-        <CircleCheck
-          v-if="healthy"
-          class="mt-0.5 size-4 shrink-0 text-success"
-          aria-hidden="true"
-        />
-        <CircleAlert v-else class="mt-0.5 size-4 shrink-0 text-accent" aria-hidden="true" />
-        <span v-if="syncing || running">Updating from AniList… this takes a minute or two.</span>
-        <span v-else-if="!run">No data yet. Run the first update.</span>
-        <span v-else>
-          {{ run.ok ? 'Updated' : 'Last tried' }}
-          {{ formatDateTime(run.finished_at ?? run.started_at) }}
-          <template v-if="!run.ok"> with errors</template>
-          <template v-else-if="!healthy"> — over 36 hours ago</template>
-          <template v-if="run.snapshots !== null">
-            · {{ run.snapshots }} series on AniList</template
-          >
-        </span>
-      </p>
-      <BaseButton size="sm" variant="secondary" :loading="syncing || running" @click="refresh">
-        <RefreshCw class="size-4" aria-hidden="true" /> Refresh now
-      </BaseButton>
+    <div class="rounded-2xl border border-line bg-surface p-3" role="status">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <ul class="space-y-1 text-sm">
+          <li v-for="h in health" :key="h.label" class="flex items-start gap-2">
+            <component
+              :is="healthIcon[h.state]"
+              class="mt-0.5 size-4 shrink-0"
+              :class="healthColor[h.state]"
+              aria-hidden="true"
+            />
+            <span
+              ><span class="font-semibold">{{ h.label }}:</span> {{ h.text
+              }}<span v-if="h.state === 'stale'" class="sr-only"> (needs attention)</span></span
+            >
+          </li>
+        </ul>
+        <BaseButton size="sm" variant="secondary" :loading="syncing || running" @click="refresh">
+          <RefreshCw class="size-4" aria-hidden="true" /> Refresh now
+        </BaseButton>
+      </div>
     </div>
 
-    <RouterLink
-      v-if="needsMatch"
-      :to="{ name: 'radar-matches' }"
-      class="flex min-h-11 items-center gap-2 rounded-xl border border-line bg-surface px-4 py-2 text-sm font-semibold hover:border-ink-2"
-    >
-      <Sparkles class="size-4" aria-hidden="true" />
-      {{ needsMatch }} {{ needsMatch === 1 ? 'set needs' : 'sets need' }} an AniList match. Review
-      matches
-    </RouterLink>
+    <div class="flex flex-wrap gap-2">
+      <RouterLink
+        :to="{ name: 'radar-lot' }"
+        class="inline-flex min-h-11 items-center gap-2 rounded-xl border border-line bg-surface px-4 text-sm font-semibold hover:border-ink-2"
+      >
+        <PackageSearch class="size-4" aria-hidden="true" /> Check a lot
+      </RouterLink>
+      <RouterLink
+        v-if="needsMatch"
+        :to="{ name: 'radar-matches' }"
+        class="inline-flex min-h-11 items-center gap-2 rounded-xl border border-line bg-surface px-4 text-sm font-semibold hover:border-ink-2"
+      >
+        <Sparkles class="size-4" aria-hidden="true" />
+        {{ needsMatch }} {{ needsMatch === 1 ? 'set needs' : 'sets need' }} an AniList match
+      </RouterLink>
+    </div>
 
     <p
       v-if="error"
@@ -227,128 +364,165 @@ const matchNote = (r: RadarRow) =>
     />
 
     <template v-else>
-      <div
+      <RadarDigestCard
         v-if="anyScores"
-        class="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:mx-0 lg:px-0"
-        role="group"
-        aria-label="Filter by action"
-      >
-        <BaseChip :selected="filter === 'all'" @toggle="filter = 'all'"
-          >All ({{ rows.length }})</BaseChip
+        :digest="digest"
+        :names="names"
+        :running="digesting"
+        @open="openDetail"
+        @run="writeDigest"
+      />
+
+      <!-- Filters -->
+      <div v-if="anyScores" class="space-y-3">
+        <div
+          class="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:mx-0 lg:flex-wrap lg:px-0"
+          role="group"
+          aria-label="Filter by action"
         >
-        <BaseChip
-          v-for="a in actionOrder"
-          :key="a"
-          :selected="filter === a"
-          :disabled="counts[a] === 0"
-          @toggle="filter = filter === a ? 'all' : a"
-          >{{ actionLabels[a] }} ({{ counts[a] }})</BaseChip
-        >
+          <BaseChip
+            :selected="filters.action === 'all'"
+            @toggle="filters = { ...filters, action: 'all' }"
+            >All ({{ rows.length }})</BaseChip
+          >
+          <BaseChip
+            v-for="a in actionOrder"
+            :key="a"
+            :selected="filters.action === a"
+            :disabled="counts[a] === 0"
+            @toggle="filters = { ...filters, action: filters.action === a ? 'all' : a }"
+            >{{ actionLabels[a] }} ({{ counts[a] }})</BaseChip
+          >
+          <BaseChip
+            :selected="filters.animeOnly"
+            @toggle="filters = { ...filters, animeOnly: !filters.animeOnly }"
+            >Anime announced or airing</BaseChip
+          >
+          <BaseChip
+            :selected="filters.watchOnly"
+            :disabled="watchlist.length === 0"
+            @toggle="filters = { ...filters, watchOnly: !filters.watchOnly }"
+            >On watchlist ({{ watchlist.length }})</BaseChip
+          >
+        </div>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <BaseSelect v-model="sortModel" label="Sort by" :options="sortOptions" />
+          <BaseSelect
+            v-model="publisherModel"
+            label="Publisher"
+            placeholder="All publishers"
+            :options="[
+              { value: '', label: 'All publishers' },
+              ...publishers.map((p) => ({ value: p, label: p })),
+            ]"
+          />
+        </div>
       </div>
 
       <p
         v-if="shown.length === 0"
         class="rounded-2xl border border-dashed border-line p-6 text-center text-ink-2"
       >
-        Nothing here today.
+        {{ filtering ? 'Nothing matches these filters.' : 'Nothing here today.' }}
       </p>
       <ol v-else class="divide-y divide-line rounded-2xl border border-line bg-surface">
-        <li v-for="r in shown" :key="r.id" class="flex gap-3 p-3 sm:p-4">
-          <div class="flex w-12 shrink-0 flex-col items-center gap-0.5 pt-0.5">
+        <li v-for="r in shown" :key="r.id">
+          <button
+            type="button"
+            class="flex w-full gap-3 p-3 text-left hover:bg-surface-2 sm:p-4"
+            :aria-label="`${r.name}${r.score ? `, score ${r.score.total}, ${actionLabels[r.score.action]}` : ''}. Show details`"
+            @click="openDetail(r.id)"
+          >
             <span
-              v-if="r.score"
-              class="text-2xl leading-none font-black tabular-nums"
-              :aria-label="`Score ${r.score.total} out of 100`"
-              >{{ r.score.total }}</span
+              class="flex w-12 shrink-0 flex-col items-center gap-0.5 pt-0.5"
+              aria-hidden="true"
             >
-            <span v-else class="text-2xl leading-none font-black text-ink-2" aria-label="No score"
-              >—</span
-            >
-          </div>
-          <div class="min-w-0 flex-1 space-y-1.5">
-            <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <RouterLink
-                :to="{ name: 'template-detail', params: { id: r.id } }"
-                class="font-semibold break-words hover:underline"
-                >{{ r.name }}</RouterLink
-              >
-              <span
-                v-if="r.score"
-                class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-bold"
-                :class="actionClasses[r.score.action]"
-              >
-                <component :is="actionIcons[r.score.action]" class="size-3.5" aria-hidden="true" />
-                {{ actionLabels[r.score.action] }}
+              <span class="text-2xl leading-none font-black tabular-nums">{{
+                r.score ? r.score.total : '—'
+              }}</span>
+            </span>
+            <span class="min-w-0 flex-1 space-y-1.5">
+              <span class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span class="font-semibold break-words">{{ r.name }}</span>
+                <span
+                  v-if="r.score"
+                  class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-bold"
+                  :class="actionClasses[r.score.action]"
+                >
+                  <component
+                    :is="actionIcons[r.score.action]"
+                    class="size-3.5"
+                    aria-hidden="true"
+                  />
+                  {{ actionLabels[r.score.action] }}
+                </span>
+                <span v-if="watched.has(r.id)" class="text-xs font-semibold text-ink-2"
+                  >Watching</span
+                >
               </span>
-              <a
-                v-if="r.anilist_id"
-                :href="anilistUrl(r.anilist_id)"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="ml-auto text-xs font-semibold text-ink-2 hover:underline"
-                >AniList</a
-              >
-            </div>
 
-            <ul v-if="r.score?.reasons.length" class="flex flex-wrap gap-x-3 gap-y-0.5 text-sm">
-              <li v-for="reason in r.score.reasons.slice(0, 2)" :key="reason">{{ reason }}</li>
-            </ul>
+              <span v-if="r.score?.reasons.length" class="flex flex-wrap gap-x-3 gap-y-0.5 text-sm">
+                <span v-for="reason in r.score.reasons.slice(0, 2)" :key="reason">{{
+                  reason
+                }}</span>
+              </span>
 
-            <template v-if="r.latest">
-              <div
-                v-if="
-                  r.latest.anime_airing ||
-                  r.latest.has_upcoming_anime ||
-                  (r.latest.trending ?? 0) > 0
-                "
-                class="flex flex-wrap gap-1.5"
-              >
+              <template v-if="r.latest">
                 <span
-                  v-if="r.latest.anime_airing"
-                  class="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-xs font-semibold"
+                  v-if="
+                    r.latest.anime_airing ||
+                    r.latest.has_upcoming_anime ||
+                    (r.latest.trending ?? 0) > 0
+                  "
+                  class="flex flex-wrap gap-1.5"
                 >
-                  <Clapperboard class="size-3.5" aria-hidden="true" /> Anime airing
+                  <span
+                    v-if="r.latest.anime_airing"
+                    class="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-xs font-semibold"
+                  >
+                    <Clapperboard class="size-3.5" aria-hidden="true" /> Anime airing
+                  </span>
+                  <span
+                    v-if="r.latest.has_upcoming_anime"
+                    class="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-xs font-semibold"
+                  >
+                    <Sparkles class="size-3.5" aria-hidden="true" /> Anime announced
+                  </span>
+                  <span
+                    v-if="(r.latest.trending ?? 0) > 0"
+                    class="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-xs font-semibold"
+                  >
+                    <Flame class="size-3.5" aria-hidden="true" /> Trending {{ r.latest.trending }}
+                  </span>
                 </span>
-                <span
-                  v-if="r.latest.has_upcoming_anime"
-                  class="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-xs font-semibold"
-                >
-                  <Sparkles class="size-3.5" aria-hidden="true" /> Anime announced
+                <span class="grid grid-cols-3 gap-x-4 gap-y-1 text-sm">
+                  <span>
+                    <span class="block text-xs text-ink-2">Popularity</span>
+                    <span class="tabular-nums">{{ number(r.latest.popularity) }}</span>
+                  </span>
+                  <span>
+                    <span class="block text-xs text-ink-2">7 days</span>
+                    <span class="flex items-center gap-1 tabular-nums">
+                      <template v-if="r.popularity7d !== null">
+                        <TrendingUp v-if="r.popularity7d > 0" class="size-3.5" aria-hidden="true" />
+                        {{ formatChange(r.popularity7d) }}
+                      </template>
+                      <span v-else class="text-ink-2">Collecting</span>
+                    </span>
+                  </span>
+                  <span>
+                    <span class="block text-xs text-ink-2">In stock</span>
+                    <span class="tabular-nums">{{ r.units_in_stock }}</span>
+                  </span>
                 </span>
-                <span
-                  v-if="(r.latest.trending ?? 0) > 0"
-                  class="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-xs font-semibold"
-                >
-                  <Flame class="size-3.5" aria-hidden="true" /> Trending {{ r.latest.trending }}
-                </span>
-              </div>
-              <dl class="grid grid-cols-3 gap-x-4 gap-y-1 text-sm">
-                <div>
-                  <dt class="text-xs text-ink-2">Popularity</dt>
-                  <dd class="tabular-nums">{{ number(r.latest.popularity) }}</dd>
-                </div>
-                <div>
-                  <dt class="text-xs text-ink-2">7 days</dt>
-                  <dd class="flex items-center gap-1 tabular-nums">
-                    <template v-if="r.popularity7d !== null">
-                      <TrendingUp v-if="r.popularity7d > 0" class="size-3.5" aria-hidden="true" />
-                      {{ formatChange(r.popularity7d) }}
-                    </template>
-                    <span v-else class="text-ink-2">Collecting</span>
-                  </dd>
-                </div>
-                <div>
-                  <dt class="text-xs text-ink-2">In stock</dt>
-                  <dd class="tabular-nums">{{ r.units_in_stock }}</dd>
-                </div>
-              </dl>
-            </template>
-            <p v-else class="text-sm text-ink-2">{{ matchNote(r) }}</p>
+              </template>
+              <span v-else class="block text-sm text-ink-2">{{ matchNote(r) }}</span>
 
-            <p v-if="r.missing_count > 0" class="text-xs text-ink-2">
-              Missing {{ r.missing_ranges }}
-            </p>
-          </div>
+              <span v-if="r.missing_count > 0" class="block text-xs text-ink-2">
+                Missing {{ r.missing_ranges }}
+              </span>
+            </span>
+          </button>
         </li>
       </ol>
 
@@ -357,7 +531,13 @@ const matchNote = (r: RadarRow) =>
         <RouterLink :to="{ name: 'radar-matches' }" class="font-semibold underline"
           >AniList matches</RouterLink
         >
+        ·
+        <a href="https://anilist.co" target="_blank" rel="noopener noreferrer" class="underline"
+          >Trend data from AniList</a
+        >
       </p>
     </template>
+
+    <RadarDetailSheet v-model:open="detailOpen" :row="detailRow" :watch-entry="detailWatch" />
   </div>
 </template>

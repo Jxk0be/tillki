@@ -170,6 +170,39 @@ begin
 end;
 $$;
 
+create function kura_radar_tests.test_digests_and_jobs()
+returns setof text
+language plpgsql
+set search_path = public, extensions
+as $$
+begin
+  -- Skipped until the digest/eBay migration is applied.
+  if to_regclass('public.radar_digests') is null then
+    return next skip('radar_digests not installed yet', 5);
+    return;
+  end if;
+  insert into radar_digests (ok, content) values (true, '{"buy": []}');
+  return next ok(
+    (select relrowsecurity from pg_class where oid = 'public.radar_digests'::regclass),
+    'RLS is on for radar_digests');
+  return next ok(
+    exists (select 1 from cron.job where jobname = 'radar-weekly-digest'),
+    'the weekly digest is scheduled');
+  return next ok(
+    exists (select 1 from cron.job where jobname = 'radar-nightly-ebay-sync'),
+    'the nightly eBay sync is scheduled');
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', gen_random_uuid(), 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  return next is((select count(*)::int from radar_digests), 0, 'a non-admin sees no digests');
+  return next throws_ok(
+    $q$insert into radar_digests (ok) values (true)$q$,
+    '42501', null, 'a non-admin cannot write digests');
+  reset role;
+end;
+$$;
+
 select * from runtests('kura_radar_tests'::name);
 
 rollback;

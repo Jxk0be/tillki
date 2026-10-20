@@ -1,16 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildRadarRows,
+  defaultRadarFilters,
+  filterRadarRows,
   formatChange,
   isStale,
   matchState,
   parseAniListId,
   type RadarSet,
   type RadarSnapshot,
+  type RadarSort,
 } from '../radar'
 
 function set(p: Partial<RadarSet> & { id: string; name: string }): RadarSet {
   return {
+    publisher: null,
     anilist_id: null,
     anilist_match: null,
     anilist_candidates: null,
@@ -118,6 +122,59 @@ describe('scores', () => {
     expect(rows.map((r) => r.id)).toEqual(['b', 'a', 'c'])
     expect(rows[0]!.score?.action).toBe('buy')
     expect(rows[2]!.score).toBeNull()
+  })
+})
+
+describe('filterRadarRows', () => {
+  const comps = (momentum: number, velocity: number) => ({
+    momentum,
+    adaptation: 0,
+    velocity,
+    margin: 0.5,
+    supply: 0.5,
+    set_gap: 0,
+  })
+  const rows = buildRadarRows(
+    [
+      set({ id: 'a', name: 'A', publisher: 'VIZ Media', anilist_id: 1 }),
+      set({ id: 'b', name: 'B', publisher: 'Kodansha', anilist_id: 2 }),
+      set({ id: 'c', name: 'C', publisher: 'VIZ Media' }),
+    ],
+    [{ ...snap(1, '2026-10-19', 10), has_upcoming_anime: true }, snap(2, '2026-10-19', 10)],
+    [
+      {
+        template_id: 'a',
+        scored_on: '2026-10-19',
+        total: 60,
+        action: 'hold',
+        reasons: [],
+        components: comps(0.9, 0.1),
+      },
+      {
+        template_id: 'b',
+        scored_on: '2026-10-19',
+        total: 70,
+        action: 'buy',
+        reasons: [],
+        components: comps(0.2, 0.8),
+      },
+    ],
+  )
+  const ids = (f: Partial<typeof defaultRadarFilters>, watched: string[] = []) =>
+    filterRadarRows(rows, { ...defaultRadarFilters, ...f }, new Set(watched)).map((r) => r.id)
+
+  it('filters by action, publisher, anime and watchlist', () => {
+    expect(ids({ action: 'buy' })).toEqual(['b'])
+    expect(ids({ publisher: 'VIZ Media' })).toEqual(['a', 'c'])
+    expect(ids({ animeOnly: true })).toEqual(['a'])
+    expect(ids({ watchOnly: true }, ['c'])).toEqual(['c'])
+  })
+
+  it('sorts by a component, unscored last', () => {
+    const sorted = (sort: RadarSort) => ids({ sort })
+    expect(sorted('score')).toEqual(['b', 'a', 'c'])
+    expect(sorted('momentum')).toEqual(['a', 'b', 'c'])
+    expect(sorted('velocity')).toEqual(['b', 'a', 'c'])
   })
 })
 

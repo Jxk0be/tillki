@@ -836,6 +836,44 @@ export type Database = {
         }
         Relationships: []
       }
+      radar_digests: {
+        Row: {
+          content: Json | null
+          created_at: string
+          id: string
+          model: string | null
+          ok: boolean
+          raw_text: string | null
+          run_id: string | null
+        }
+        Insert: {
+          content?: Json | null
+          created_at?: string
+          id?: string
+          model?: string | null
+          ok: boolean
+          raw_text?: string | null
+          run_id?: string | null
+        }
+        Update: {
+          content?: Json | null
+          created_at?: string
+          id?: string
+          model?: string | null
+          ok?: boolean
+          raw_text?: string | null
+          run_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'radar_digests_run_id_fkey'
+            columns: ['run_id']
+            isOneToOne: false
+            referencedRelation: 'radar_runs'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       radar_runs: {
         Row: {
           detail: Json

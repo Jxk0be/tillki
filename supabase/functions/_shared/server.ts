@@ -99,7 +99,7 @@ export function serviceClient(): SupabaseClient | null {
  */
 export async function requireAdminOrCron(
   req: Request,
-): Promise<{ db: SupabaseClient; trigger: 'cron' | 'manual' } | Response> {
+): Promise<{ db: SupabaseClient; trigger: 'cron' | 'manual'; userId: string | null } | Response> {
   if (req.method === 'OPTIONS')
     return new Response(null, { status: 204, headers: corsHeaders(req) })
   const db = serviceClient()
@@ -108,11 +108,11 @@ export async function requireAdminOrCron(
   if (cronToken) {
     const { data: ok } = await db.rpc('radar_cron_token_ok', { p_token: cronToken })
     if (ok !== true) return json(req, 403, { error: 'Bad cron token.' })
-    return { db, trigger: 'cron' }
+    return { db, trigger: 'cron', userId: null }
   }
   const caller = await requireAdmin(req)
   if (caller instanceof Response) return caller
-  return { db, trigger: 'manual' }
+  return { db, trigger: 'manual', userId: caller.userId }
 }
 
 /** The Anthropic client and model, or a Response explaining the missing secret. */
@@ -143,7 +143,8 @@ export function aiErrorMessage(e: unknown, fn = 'kura'): string {
 
 /** Records token usage (ai_usage is written server-side only, with the service key). */
 export async function logUsage(
-  userId: string,
+  /** Null for scheduled jobs that run without a signed-in user. */
+  userId: string | null,
   functionName: string,
   model: string,
   usage: { input_tokens: number; output_tokens: number },

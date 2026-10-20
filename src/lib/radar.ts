@@ -13,6 +13,7 @@ export interface AniListCandidate {
 export interface RadarSet {
   id: string
   name: string
+  publisher: string | null
   anilist_id: number | null
   anilist_match: 'auto' | 'confirmed' | 'none' | null
   anilist_candidates: AniListCandidate[] | null
@@ -38,12 +39,45 @@ export interface RadarSnapshot {
 
 export type RadarAction = 'buy' | 'hold' | 'finish_set' | 'avoid'
 
+export interface ScoreComponents {
+  momentum: number
+  adaptation: number
+  velocity: number
+  margin: number
+  supply: number
+  set_gap: number
+}
+
+export const componentLabels: Record<keyof ScoreComponents, string> = {
+  momentum: 'AniList momentum',
+  adaptation: 'Anime adaptation',
+  velocity: 'How fast we sell it',
+  margin: 'Our margin',
+  supply: 'eBay supply',
+  set_gap: 'Set nearly complete',
+}
+
 export interface RadarScore {
   template_id: string
   scored_on: string
   total: number
   action: RadarAction
   reasons: string[]
+  components?: ScoreComponents
+}
+
+export interface DigestPick {
+  series_id: string
+  why: string
+  suggested_max_cents: number | null
+}
+
+export interface DigestContent {
+  buy: DigestPick[]
+  finish_sets: DigestPick[]
+  stop_buying: DigestPick[]
+  watch: DigestPick[]
+  notes: string
 }
 
 export const actionLabels: Record<RadarAction, string> = {
@@ -174,4 +208,47 @@ export function formatChange(n: number): string {
 export function isStale(finishedAt: string | null, now: Date, hours = 36): boolean {
   if (!finishedAt) return true
   return now.getTime() - Date.parse(finishedAt) > hours * 3_600_000
+}
+
+export type RadarSort = 'score' | 'momentum' | 'velocity' | 'margin'
+
+export interface RadarFilters {
+  action: RadarAction | 'all'
+  publisher: string | null
+  animeOnly: boolean
+  watchOnly: boolean
+  sort: RadarSort
+}
+
+export const defaultRadarFilters: RadarFilters = {
+  action: 'all',
+  publisher: null,
+  animeOnly: false,
+  watchOnly: false,
+  sort: 'score',
+}
+
+/** Applies the Radar page's filters and sort. Unscored rows always sort last. */
+export function filterRadarRows(
+  rows: RadarRow[],
+  f: RadarFilters,
+  watched: ReadonlySet<string>,
+): RadarRow[] {
+  const out = rows.filter((r) => {
+    if (f.action !== 'all' && r.score?.action !== f.action) return false
+    if (f.publisher && r.publisher !== f.publisher) return false
+    if (f.animeOnly && !(r.latest?.has_upcoming_anime || r.latest?.anime_airing)) return false
+    if (f.watchOnly && !watched.has(r.id)) return false
+    return true
+  })
+  if (f.sort === 'score') return out
+  const key = f.sort
+  return [...out].sort((a, b) => {
+    const av = a.score?.components?.[key]
+    const bv = b.score?.components?.[key]
+    if (av === undefined && bv === undefined) return 0
+    if (av === undefined) return 1
+    if (bv === undefined) return -1
+    return bv - av
+  })
 }

@@ -151,9 +151,15 @@ Decided on 2026-10-19: AniList id on each set (section 2), cron with a Vault-che
 - Light novels and one-shots are skipped.
 - A tie between manga entries is broken only when one has at least 3× the popularity of the other.
 
-**Next**
+**Phases 5-9 (2026-10-19)**
 
-- **Phase 5:** filters by publisher and watchlist, a detail sheet with the component breakdown and a popularity chart, and watchlist editing.
-- **Phase 6:** the weekly Claude digest.
-- **Phase 7:** a lot checker built into Deal check.
-- **Phase 8:** eBay prices, once you have a developer account.
+| Migration                                  | What                                                                                                                              |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `20261020032553_buy_radar_digest_and_ebay` | The `radar_digests` table, plus the cron jobs `radar-nightly-ebay-sync` (06:40 UTC) and `radar-weekly-digest` (Sundays 12:10 UTC) |
+
+- **Phase 5:** `/radar` has action, anime, watchlist and publisher filters, plus a sort. Each set opens `RadarDetailSheet`, with the score breakdown, popularity chart, our sales and platform split, prices labelled asking or sold, missing volumes, the watchlist, and "Ask about this series" (opens `/ask?q=`).
+- **Phase 6:** the `radar-digest` function and `RadarDigestCard`. The pure logic is in `radar-digest/lib.ts`: selecting series, the zod schema, and `sanitizeDigest`, which drops unknown series and unsupported prices.
+- **Phase 7:** `/radar/lot`. It is a separate page because Deal check is Claude-based and this is pure math. The math is in `src/lib/lotCheck.ts`, and "Buy" pre-fills Add volumes with `?v=&total=&condition=`.
+- **Phase 8:** the `ebay-sync` function, which is skipped until `EBAY_CLIENT_ID` and `EBAY_CLIENT_SECRET` are set. `EBAY_SOLD_ENABLED=true` adds Marketplace Insights sold prices.
+- **Phase 9:** the health line covers all three jobs. Operations are documented in `docs/buy-radar.md`.
+- **Skipped:** the optional distributor-price CSV import. Nothing reads it yet.

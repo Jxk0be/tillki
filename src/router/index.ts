@@ -169,6 +169,12 @@ const router = createRouter({
       meta: { title: 'AniList matches', requiresAuth: true },
     },
     {
+      path: '/radar/lot',
+      name: 'radar-lot',
+      component: () => import('@/views/radar/RadarLotView.vue'),
+      meta: { title: 'Check a lot', requiresAuth: true },
+    },
+    {
       path: '/tools',
       name: 'tools',
       component: () => import('@/views/ToolsView.vue'),

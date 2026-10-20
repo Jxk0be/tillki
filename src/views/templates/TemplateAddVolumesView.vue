@@ -149,6 +149,14 @@ onMounted(async () => {
     if (v) volumesText.value = formatRanges(parseVolumeInput(v).volumes)
     const isbn = typeof route.query.isbn === 'string' ? normalizeIsbn(route.query.isbn) : null
     if (isbn) isbnFromScan.value = isbn
+    const q = route.query.condition
+    if (typeof q === 'string' && q in conditionLabels) condition.value = q as ItemCondition
+    // ?total= (cents) from Buy Radar's lot checker: what was paid for these volumes.
+    const total = typeof route.query.total === 'string' ? Number(route.query.total) : NaN
+    if (Number.isInteger(total) && total >= 0) {
+      costMode.value = 'split_total'
+      costText.value = (total / 100).toFixed(2)
+    }
   } catch {
     toast.error("Couldn't load this set.")
   } finally {
